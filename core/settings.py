@@ -15,7 +15,8 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+# ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = ['*']
 
 # Render.com sets this env var automatically to the app's external hostname.
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
@@ -73,17 +74,25 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Uses SQLite by default (fine for local dev / small free hosts).
 # If a DATABASE_URL env var is provided (e.g. Render's free Postgres), use it
 # instead, since most free web-service disks are wiped on every redeploy.
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+import os
+import dj_database_url
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL")
+    )
 }
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+# DATABASE_URL = os.environ.get('DATABASE_URL')
+# if DATABASE_URL:
+#     import dj_database_url
+#     DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 
 # --- Auth -----------------------------------------------------------------
 AUTH_USER_MODEL = 'accounts.User'
