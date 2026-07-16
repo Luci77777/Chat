@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ friend.username }} · Pingback{% endblock %}
+{% block body %}
+<div class="chat-room" data-username="{{ friend.username }}"
+     data-poll-url="{% url 'chat:poll' friend.username %}"
+     data-send-url="{% url 'chat:send' friend.username %}">
+
+  <div class="chat-header">
+    <a href="{% url 'chat:inbox' %}" class="btn btn-ghost btn-sm">← Back</a>
+    <div class="avatar sm" style="background:{{ friend.avatar_color }};">{{ friend.username|first|upper }}</div>
+    <div>
+      <div style="font-weight:700;">{{ friend.username }}</div>
+      {% if friend.bio %}<div class="text-muted" style="font-size:0.8rem;">{{ friend.bio }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="chat-messages" id="chat-messages">
+    {% for m in chat_messages %}
+      <div class="bubble-row {% if m.sender == user %}mine{% endif %}" data-id="{{ m.pk }}">
+        <div class="bubble">{{ m.body }}<span class="time">{{ m.created_at|time:"H:i" }}</span></div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <form class="chat-input-bar" id="chat-form">
+    {% csrf_token %}
+    <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off" maxlength="2000" autofocus>
+    <button class="btn btn-primary" type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  const root = document.querySelector('.chat-room');
+  const pollUrl = root.dataset.pollUrl;
+  const sendUrl = root.dataset.sendUrl;
+  const messagesEl = document.getElementById('chat-messages');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input');
+  const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  let lastId = 0;
+  messagesEl.querySelectorAll('.bubble-row[data-id]').forEach((row) => {
+    const id = parseInt(row.dataset.id, 10);
+    if (!isNaN(id)) lastId = Math.max(lastId, id);
+  });
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  scrollToBottom();
+
+  function appendMessage(m) {
+    const row = document.createElement('div');
+    row.className = 'bubble-row' + (m.mine ? ' mine' : '');
+    row.dataset.id = m.id;
+    row.innerHTML = '<div class="bubble"></div>';
+    const bubble = row.querySelector('.bubble');
+    bubble.appendChild(document.createTextNode(m.body));
+    const time = document.createElement('span');
+    time.className = 'time';
+    time.textContent = m.created_at;
+    bubble.appendChild(time);
+    messagesEl.appendChild(row);
+    lastId = Math.max(lastId, m.id);
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch(pollUrl + '?after=' + lastId);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.messages && data.messages.length) {
+        const wasAtBottom = messagesEl.scrollTop + messagesEl.clientHeight >= messagesEl.scrollHeight - 40;
+        data.messages.forEach(appendMessage);
+        if (wasAtBottom) scrollToBottom();
+      }
+    } catch (e) { /* silent: try again on next tick */ }
+  }
+
+  setInterval(poll, 3000);
+  window.addEventListener('focus', poll);
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const body = input.value.trim();
+    if (!body) return;
+    input.value = '';
+    input.disabled = true;
+    try {
+      const res = await fetch(sendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrfToken,
+        },
+        body: 'body=' + encodeURIComponent(body),
+      });
+      if (res.ok) {
+        const m = await res.json();
+        appendMessage(m);
+        scrollToBottom();
+      }
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  });
+})();
+</script>
+{% endblock %}

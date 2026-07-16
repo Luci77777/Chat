@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Friends · Pingback{% endblock %}
+{% block body %}
+<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Your friends</h2></div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    {% if not friends %}
+      <div class="empty-state">
+        <h3>No friends yet</h3>
+        <p>Go to <a href="{% url 'friends:search' %}">Find people</a> to send your first request.</p>
+      </div>
+    {% else %}
+      {% for f in friends %}
+        <div class="list-row">
+          <div class="avatar sm" style="background:{{ f.avatar_color }};">{{ f.username|first|upper }}</div>
+          <div class="meta">
+            <div class="name">{{ f.username }}</div>
+            {% if f.bio %}<div class="sub">{{ f.bio }}</div>{% endif %}
+          </div>
+          <a class="btn btn-primary btn-sm" href="{% url 'chat:room' f.username %}">Message</a>
+          <a class="btn btn-danger btn-sm" href="{% url 'friends:remove_friend' f.username %}"
+             onclick="return confirm('Remove {{ f.username }} from your friends?');">Remove</a>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

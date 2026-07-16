@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Find people · Pingback{% endblock %}
+{% block body %}
+<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Find people</h2></div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="get" class="mb-16" style="display:flex; gap:10px;">
+    <input type="search" name="q" value="{{ query }}" placeholder="Search by username…" autofocus>
+    <button class="btn btn-primary" type="submit">Search</button>
+  </form>
+
+  <div class="card">
+    {% if query and not results %}
+      <div class="empty-state">
+        <h3>No one found</h3>
+        <p>No users match "{{ query }}". Try a different username.</p>
+      </div>
+    {% elif not query %}
+      <div class="empty-state">
+        <h3>Search for a username</h3>
+        <p>Find people on Pingback and send them a friend request.</p>
+      </div>
+    {% else %}
+      {% for u in results %}
+        <div class="list-row">
+          <div class="avatar sm" style="background:{{ u.avatar_color }};">{{ u.username|first|upper }}</div>
+          <div class="meta">
+            <div class="name">{{ u.username }}</div>
+            {% if u.bio %}<div class="sub">{{ u.bio }}</div>{% endif %}
+          </div>
+          {% if u.relation == 'friends' %}
+            <a class="btn btn-ghost btn-sm" href="{% url 'chat:room' u.username %}">Message</a>
+          {% elif u.relation == 'pending_sent' %}
+            <button class="btn btn-ghost btn-sm" disabled>Request sent</button>
+          {% elif u.relation == 'pending_received' %}
+            <a class="btn btn-coral btn-sm" href="{% url 'friends:requests' %}">Respond</a>
+          {% else %}
+            <a class="btn btn-primary btn-sm" href="{% url 'friends:send_request' u.username %}">Add friend</a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

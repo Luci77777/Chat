@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Chats · Pingback{% endblock %}
+{% block body %}
+<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Chats</h2></div>
+<div class="content">
+  <div class="card" id="inbox-card" data-inbox-url="{% url 'chat:inbox_data' %}" data-room-base="/chat/with/">
+    {% if not conversations %}
+      <div class="empty-state" id="inbox-empty">
+        <h3>No conversations yet</h3>
+        <p>Add a friend from <a href="{% url 'friends:search' %}">Find people</a>, then start chatting.</p>
+      </div>
+    {% else %}
+      <div id="inbox-list">
+        {% for c in conversations %}
+          <a class="list-row" style="color:inherit;" href="{% url 'chat:room' c.friend.username %}" data-username="{{ c.friend.username }}">
+            <div class="avatar" style="background:{{ c.friend.avatar_color }};">{{ c.friend.username|first|upper }}</div>
+            <div class="meta">
+              <div class="name">{{ c.friend.username }}</div>
+              <div class="sub">
+                {% if c.last_msg %}
+                  {% if c.last_msg.sender == user %}You: {% endif %}{{ c.last_msg.body }}
+                {% else %}
+                  Say hi 👋
+                {% endif %}
+              </div>
+            </div>
+            {% if c.unread %}<span class="badge">{{ c.unread }}</span>{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+(function () {
+  const card = document.getElementById('inbox-card');
+  if (!card) return;
+  const inboxUrl = card.dataset.inboxUrl;
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function render(conversations) {
+    if (!conversations.length) {
+      card.innerHTML = `
+        <div class="empty-state" id="inbox-empty">
+          <h3>No conversations yet</h3>
+          <p>Add a friend from <a href="/friends/search/">Find people</a>, then start chatting.</p>
+        </div>`;
+      return;
+    }
+    const rows = conversations.map((c) => {
+      const preview = c.last_message
+        ? (c.mine ? 'You: ' : '') + escapeHtml(c.last_message)
+        : 'Say hi \uD83D\uDC4B';
+      const badge = c.unread ? `<span class="badge">${c.unread > 99 ? '99+' : c.unread}</span>` : '';
+      return `
+        <a class="list-row" style="color:inherit;" href="/chat/with/${encodeURIComponent(c.username)}/" data-username="${escapeHtml(c.username)}">
+          <div class="avatar" style="background:${c.avatar_color};">${escapeHtml(c.initial)}</div>
+          <div class="meta">
+            <div class="name">${escapeHtml(c.username)}</div>
+            <div class="sub">${preview}</div>
+          </div>
+          ${badge}
+        </a>`;
+    }).join('');
+    card.innerHTML = `<div id="inbox-list">${rows}</div>`;
+  }
+
+  async function refreshInbox() {
+    if (document.hidden) return;
+    try {
+      const res = await fetch(inboxUrl);
+      if (!res.ok) return;
+      const data = await res.json();
+      render(data.conversations || []);
+    } catch (e) { /* silent — next trigger will retry */ }
+  }
+
+  // The sidebar's lightweight poll (notify.js) already tells us when the
+  // unread count changed, so we only do the heavier inbox fetch when
+  // there's actually something new to show — not on a fixed timer.
+  window.addEventListener('pingback:summary', (e) => {
+    if (e.detail.changed.unread_messages) refreshInbox();
+  });
+})();
+</script>
+{% endblock %}

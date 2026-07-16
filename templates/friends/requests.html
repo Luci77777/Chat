@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Requests · Pingback{% endblock %}
+{% block body %}
+<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Friend requests</h2></div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <h3 style="font-size:0.95rem; margin-bottom:10px;">Incoming</h3>
+  <div class="card mb-16">
+    {% if not incoming %}
+      <div class="empty-state"><p style="margin:0;">No incoming requests right now.</p></div>
+    {% else %}
+      {% for fr in incoming %}
+        <div class="list-row">
+          <div class="avatar sm" style="background:{{ fr.from_user.avatar_color }};">{{ fr.from_user.username|first|upper }}</div>
+          <div class="meta"><div class="name">{{ fr.from_user.username }}</div></div>
+          <a class="btn btn-primary btn-sm" href="{% url 'friends:accept_request' fr.pk %}">Accept</a>
+          <a class="btn btn-ghost btn-sm" href="{% url 'friends:decline_request' fr.pk %}">Decline</a>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <h3 style="font-size:0.95rem; margin-bottom:10px;">Sent</h3>
+  <div class="card">
+    {% if not outgoing %}
+      <div class="empty-state"><p style="margin:0;">You haven't sent any requests.</p></div>
+    {% else %}
+      {% for fr in outgoing %}
+        <div class="list-row">
+          <div class="avatar sm" style="background:{{ fr.to_user.avatar_color }};">{{ fr.to_user.username|first|upper }}</div>
+          <div class="meta"><div class="name">{{ fr.to_user.username }}</div><div class="sub">Pending</div></div>
+          <a class="btn btn-ghost btn-sm" href="{% url 'friends:cancel_request' fr.pk %}">Cancel</a>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

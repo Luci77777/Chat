@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Pingback{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="app-shell">
+  <aside class="sidebar" data-notify-url="{% url 'chat:notify_summary' %}">
+    <div class="brand"><span class="dot"></span><span>Pingback</span></div>
+    <a class="nav-link {% if request.resolver_match.url_name == 'inbox' %}active{% endif %}" href="{% url 'chat:inbox' %}">
+      <span class="label">Chats</span>
+      <span class="badge" id="chats-badge" style="{% if not unread_messages_count %}display:none;{% endif %}">{{ unread_messages_count }}</span>
+    </a>
+    <a class="nav-link {% if request.resolver_match.url_name == 'search' %}active{% endif %}" href="{% url 'friends:search' %}">
+      <span class="label">Find people</span>
+    </a>
+    <a class="nav-link {% if request.resolver_match.url_name == 'requests' %}active{% endif %}" href="{% url 'friends:requests' %}">
+      <span class="label">Requests</span>
+      <span class="badge" id="requests-badge" style="{% if not pending_requests_count %}display:none;{% endif %}">{{ pending_requests_count }}</span>
+    </a>
+    <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}" href="{% url 'friends:list' %}">
+      <span class="label">Friends</span>
+    </a>
+    <div class="sidebar-footer stack">
+      <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">
+        <span class="label">{{ user.username }}</span>
+      </a>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" style="width:100%;" type="submit">Log out</button>
+      </form>
+    </div>
+  </aside>
+  <div class="main">
+    {% block body %}{% endblock %}
+  </div>
+</div>
+<script src="{% static 'js/notify.js' %}"></script>
+{% block extra_script %}{% endblock %}
+{% else %}
+  {% block auth_body %}{% endblock %}
+{% endif %}
+</body>
+</html>
