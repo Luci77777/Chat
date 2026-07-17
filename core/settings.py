@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'accounts',
     'friends',
     'chat',
+    'calls',
 ]
 
 MIDDLEWARE = [
@@ -74,25 +75,17 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Uses SQLite by default (fine for local dev / small free hosts).
 # If a DATABASE_URL env var is provided (e.g. Render's free Postgres), use it
 # instead, since most free web-service disks are wiped on every redeploy.
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-import os
-import dj_database_url
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL")
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
-# DATABASE_URL = os.environ.get('DATABASE_URL')
-# if DATABASE_URL:
-#     import dj_database_url
-#     DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 
 # --- Auth -----------------------------------------------------------------
 AUTH_USER_MODEL = 'accounts.User'
@@ -126,5 +119,15 @@ STORAGES = {
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Free GIF/sticker search (see README for how to get a free key at klipy.com/developers).
+# The app degrades gracefully — GIF/sticker search just won't return results — if this is unset.
+KLIPY_API_KEY = os.environ.get('KLIPY_API_KEY', '')
+
+# Free TURN relay for voice/video calls, via Metered / Open Relay
+# (see README "Voice & video calls"). Optional — without it, calls still
+# work over plain STUN for most network setups, just not the toughest ones.
+METERED_APP_DOMAIN = os.environ.get('METERED_APP_DOMAIN', '')  # e.g. "yourapp.metered.live"
+METERED_API_KEY = os.environ.get('METERED_API_KEY', '')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.inbox, name='inbox'),
     path('notify/summary/', views.notify_summary, name='notify_summary'),
     path('inbox/data/', views.inbox_data, name='inbox_data'),
+    path('gif-search/', views.gif_search, name='gif_search'),
     path('with/<str:username>/', views.room, name='room'),
     path('with/<str:username>/poll/', views.poll_messages, name='poll'),
     path('with/<str:username>/send/', views.send_message, name='send'),
