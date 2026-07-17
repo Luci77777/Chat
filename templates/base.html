@@ -40,7 +40,14 @@
     {% block body %}{% endblock %}
   </div>
 </div>
+
+<div id="call-banner-root"></div>
+<div id="call-overlay-root"></div>
+
 <script src="{% static 'js/notify.js' %}"></script>
+<script src="{% static 'js/calls.js' %}"
+        data-ice-url="{% url 'calls:ice_servers' %}"
+        data-incoming-url="{% url 'calls:incoming' %}"></script>
 {% block extra_script %}{% endblock %}
 {% else %}
   {% block auth_body %}{% endblock %}

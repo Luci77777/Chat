@@ -1,44 +1,89 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ friend.username }} · Pingback{% endblock %}
 {% block body %}
 <div class="chat-room" data-username="{{ friend.username }}"
      data-poll-url="{% url 'chat:poll' friend.username %}"
-     data-send-url="{% url 'chat:send' friend.username %}">
+     data-send-url="{% url 'chat:send' friend.username %}"
+     data-gif-search-url="{% url 'chat:gif_search' %}"
+     data-gif-enabled="{{ gif_search_enabled|yesno:'1,0' }}">
 
   <div class="chat-header">
     <a href="{% url 'chat:inbox' %}" class="btn btn-ghost btn-sm">← Back</a>
     <div class="avatar sm" style="background:{{ friend.avatar_color }};">{{ friend.username|first|upper }}</div>
-    <div>
+    <div style="flex:1;">
       <div style="font-weight:700;">{{ friend.username }}</div>
       {% if friend.bio %}<div class="text-muted" style="font-size:0.8rem;">{{ friend.bio }}</div>{% endif %}
+    </div>
+    <div class="call-btn-row">
+      <button type="button" class="icon-btn" id="call-audio-btn" title="Voice call">📞</button>
+      <button type="button" class="icon-btn" id="call-video-btn" title="Video call">🎥</button>
     </div>
   </div>
 
   <div class="chat-messages" id="chat-messages">
     {% for m in chat_messages %}
       <div class="bubble-row {% if m.sender == user %}mine{% endif %}" data-id="{{ m.pk }}">
-        <div class="bubble">{{ m.body }}<span class="time">{{ m.created_at|time:"H:i" }}</span></div>
+        {% if m.kind == 'text' %}
+          <div class="bubble">{{ m.body }}<span class="time">{{ m.created_at|time:"H:i" }}</span></div>
+        {% else %}
+          <div class="bubble media-bubble">
+            <img src="{{ m.media_url }}" alt="{{ m.get_kind_display }}" loading="lazy">
+            <span class="time">{{ m.created_at|time:"H:i" }}</span>
+          </div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>
 
   <form class="chat-input-bar" id="chat-form">
     {% csrf_token %}
+
+    <button type="button" class="icon-btn" id="emoji-toggle" title="Emoji" aria-label="Emoji">😀</button>
+    <button type="button" class="icon-btn" id="gif-toggle" title="GIF / Sticker" aria-label="GIF or sticker"
+            {% if not gif_search_enabled %}disabled title="GIF search isn't configured on this server"{% endif %}>GIF</button>
+
+    <div class="picker-panel hidden" id="emoji-panel">
+      <div class="picker-tabs" id="emoji-tabs"></div>
+      <div class="picker-body"><div class="emoji-grid" id="emoji-grid"></div></div>
+    </div>
+
+    <div class="picker-panel hidden" id="gif-panel">
+      <div class="picker-tabs">
+        <div class="picker-tab active" data-content-type="gif">GIFs</div>
+        <div class="picker-tab" data-content-type="sticker">Stickers</div>
+      </div>
+      <div class="picker-search">
+        <input type="search" id="gif-search-input" placeholder="Search GIFs…" autocomplete="off">
+      </div>
+      <div class="picker-body">
+        <div class="gif-grid" id="gif-grid"></div>
+        <div class="picker-empty hidden" id="gif-empty">No results. Try a different search.</div>
+      </div>
+    </div>
+
     <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off" maxlength="2000" autofocus>
     <button class="btn btn-primary" type="submit">Send</button>
   </form>
 </div>
 
+<script src="{% static 'js/emoji-data.js' %}"></script>
 <script>
 (function () {
   const root = document.querySelector('.chat-room');
   const pollUrl = root.dataset.pollUrl;
   const sendUrl = root.dataset.sendUrl;
+  const gifSearchUrl = root.dataset.gifSearchUrl;
+  const gifEnabled = root.dataset.gifEnabled === '1';
+
   const messagesEl = document.getElementById('chat-messages');
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-input');
   const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
 
+  // ---------------------------------------------------------------
+  // Shared helpers
+  // ---------------------------------------------------------------
   let lastId = 0;
   messagesEl.querySelectorAll('.bubble-row[data-id]').forEach((row) => {
     const id = parseInt(row.dataset.id, 10);
@@ -50,21 +95,53 @@
   }
   scrollToBottom();
 
-  function appendMessage(m) {
+  function buildBubble(m) {
     const row = document.createElement('div');
     row.className = 'bubble-row' + (m.mine ? ' mine' : '');
     row.dataset.id = m.id;
-    row.innerHTML = '<div class="bubble"></div>';
-    const bubble = row.querySelector('.bubble');
-    bubble.appendChild(document.createTextNode(m.body));
-    const time = document.createElement('span');
-    time.className = 'time';
-    time.textContent = m.created_at;
-    bubble.appendChild(time);
+
+    if (m.kind && m.kind !== 'text') {
+      row.innerHTML = `
+        <div class="bubble media-bubble">
+          <img src="${m.media_url}" alt="${m.kind}" loading="lazy">
+          <span class="time"></span>
+        </div>`;
+      row.querySelector('.time').textContent = m.created_at;
+    } else {
+      row.innerHTML = '<div class="bubble"></div>';
+      const bubble = row.querySelector('.bubble');
+      bubble.appendChild(document.createTextNode(m.body));
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = m.created_at;
+      bubble.appendChild(time);
+    }
+    return row;
+  }
+
+  function appendMessage(m) {
+    const row = buildBubble(m);
     messagesEl.appendChild(row);
     lastId = Math.max(lastId, m.id);
   }
 
+  async function sendPayload(fields) {
+    const params = new URLSearchParams(fields);
+    const res = await fetch(sendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrfToken,
+      },
+      body: params.toString(),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  // ---------------------------------------------------------------
+  // Auto-refresh (poll for new incoming messages)
+  // ---------------------------------------------------------------
   async function poll() {
     try {
       const res = await fetch(pollUrl + '?after=' + lastId);
@@ -77,10 +154,12 @@
       }
     } catch (e) { /* silent: try again on next tick */ }
   }
-
   setInterval(poll, 3000);
   window.addEventListener('focus', poll);
 
+  // ---------------------------------------------------------------
+  // Text send
+  // ---------------------------------------------------------------
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     const body = input.value.trim();
@@ -88,24 +167,152 @@
     input.value = '';
     input.disabled = true;
     try {
-      const res = await fetch(sendUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': csrfToken,
-        },
-        body: 'body=' + encodeURIComponent(body),
-      });
-      if (res.ok) {
-        const m = await res.json();
-        appendMessage(m);
-        scrollToBottom();
-      }
+      const m = await sendPayload({ body, kind: 'text' });
+      if (m) { appendMessage(m); scrollToBottom(); }
     } finally {
       input.disabled = false;
       input.focus();
     }
   });
+
+  // ---------------------------------------------------------------
+  // Emoji picker (fully client-side, no API)
+  // ---------------------------------------------------------------
+  const emojiToggle = document.getElementById('emoji-toggle');
+  const emojiPanel = document.getElementById('emoji-panel');
+  const emojiTabs = document.getElementById('emoji-tabs');
+  const emojiGrid = document.getElementById('emoji-grid');
+  const gifToggle = document.getElementById('gif-toggle');
+  const gifPanel = document.getElementById('gif-panel');
+
+  function closePanels(except) {
+    if (except !== emojiPanel) { emojiPanel.classList.add('hidden'); emojiToggle.classList.remove('active'); }
+    if (except !== gifPanel) { gifPanel.classList.add('hidden'); gifToggle.classList.remove('active'); }
+  }
+
+  function renderEmojiCategory(name) {
+    emojiGrid.innerHTML = '';
+    (window.PINGBACK_EMOJI[name] || []).forEach((emoji) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = emoji;
+      btn.addEventListener('click', () => {
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+        const cursor = start + emoji.length;
+        input.setSelectionRange(cursor, cursor);
+        input.focus();
+      });
+      emojiGrid.appendChild(btn);
+    });
+  }
+
+  if (window.PINGBACK_EMOJI) {
+    Object.keys(window.PINGBACK_EMOJI).forEach((name, i) => {
+      const tab = document.createElement('div');
+      tab.className = 'picker-tab' + (i === 0 ? ' active' : '');
+      tab.textContent = name;
+      tab.addEventListener('click', () => {
+        emojiTabs.querySelectorAll('.picker-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        renderEmojiCategory(name);
+      });
+      emojiTabs.appendChild(tab);
+    });
+    renderEmojiCategory(Object.keys(window.PINGBACK_EMOJI)[0]);
+  }
+
+  emojiToggle.addEventListener('click', () => {
+    const willOpen = emojiPanel.classList.contains('hidden');
+    closePanels(willOpen ? emojiPanel : null);
+    emojiPanel.classList.toggle('hidden', !willOpen);
+    emojiToggle.classList.toggle('active', willOpen);
+  });
+
+  // ---------------------------------------------------------------
+  // GIF / sticker picker (Klipy — see chat/klipy.py on the backend)
+  // ---------------------------------------------------------------
+  if (gifEnabled) {
+    const gifTabs = gifPanel.querySelectorAll('.picker-tab');
+    const gifSearchInput = document.getElementById('gif-search-input');
+    const gifGrid = document.getElementById('gif-grid');
+    const gifEmpty = document.getElementById('gif-empty');
+    let activeType = 'gif';
+    let searchDebounce = null;
+
+    async function runGifSearch() {
+      const q = gifSearchInput.value.trim();
+      gifGrid.innerHTML = '';
+      gifEmpty.classList.add('hidden');
+      try {
+        const res = await fetch(`${gifSearchUrl}?type=${activeType}&q=${encodeURIComponent(q)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const results = data.results || [];
+        if (!results.length) {
+          gifEmpty.classList.remove('hidden');
+          return;
+        }
+        results.forEach((item) => {
+          const img = document.createElement('img');
+          img.src = item.preview_url;
+          img.alt = item.title || activeType;
+          img.loading = 'lazy';
+          img.addEventListener('click', async () => {
+            gifPanel.classList.add('hidden');
+            gifToggle.classList.remove('active');
+            const m = await sendPayload({ media_url: item.url, kind: activeType });
+            if (m) { appendMessage(m); scrollToBottom(); }
+          });
+          gifGrid.appendChild(img);
+        });
+      } catch (e) { /* leave empty state as-is on failure */ }
+    }
+
+    gifTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        gifTabs.forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeType = tab.dataset.contentType;
+        runGifSearch();
+      });
+    });
+
+    gifSearchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(runGifSearch, 350); // debounce so we're not hitting the API on every keystroke
+    });
+
+    gifToggle.addEventListener('click', () => {
+      const willOpen = gifPanel.classList.contains('hidden');
+      closePanels(willOpen ? gifPanel : null);
+      gifPanel.classList.toggle('hidden', !willOpen);
+      gifToggle.classList.toggle('active', willOpen);
+      if (willOpen && !gifGrid.children.length) runGifSearch(); // load trending on first open
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!form.contains(e.target)) closePanels(null);
+  });
+
+  // ---------------------------------------------------------------
+  // Voice / video call buttons
+  // ---------------------------------------------------------------
+  const audioCallBtn = document.getElementById('call-audio-btn');
+  const videoCallBtn = document.getElementById('call-video-btn');
+  const friendUsername = root.dataset.username;
+  if (audioCallBtn) {
+    audioCallBtn.addEventListener('click', () => {
+      if (window.PingbackCalls) window.PingbackCalls.startCall(friendUsername, 'audio');
+    });
+  }
+  if (videoCallBtn) {
+    videoCallBtn.addEventListener('click', () => {
+      if (window.PingbackCalls) window.PingbackCalls.startCall(friendUsername, 'video');
+    });
+  }
 })();
 </script>
 {% endblock %}
