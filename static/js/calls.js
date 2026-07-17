@@ -86,6 +86,27 @@
   }
 
   // ----- WebRTC helpers -----------------------------------------------
+  // Setting `srcObject` alone is not reliably enough to start playback —
+  // browser autoplay policies (especially for *unmuted* video, which is
+  // what carries the other person's audio here) frequently block it
+  // silently, with no visible error, which is exactly why a call could
+  // "connect" but show no video/play no sound. We call .play() explicitly
+  // and, if the browser refuses because the element isn't muted, we mute
+  // it and retry so the call still connects — audio can be restored via
+  // the mic/cam controls' surrounding UI once the user has interacted.
+  function attachRemoteStream(videoEl, stream) {
+    if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
+    const playPromise = videoEl.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        if (!videoEl.muted) {
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+        }
+      });
+    }
+  }
+
   function waitForIceGatheringComplete(peerConnection) {
     if (peerConnection.iceGatheringState === 'complete') return Promise.resolve();
     return new Promise((resolve) => {
@@ -106,7 +127,9 @@
     const conn = new RTCPeerConnection({ iceServers });
     conn.addEventListener('track', (e) => {
       const remoteVideo = document.getElementById('call-remote-video');
-      if (remoteVideo && e.streams[0]) remoteVideo.srcObject = e.streams[0];
+      if (!remoteVideo) return; // overlay isn't rendered yet — renderOverlay('active') re-attaches from getReceivers()
+      const stream = e.streams[0] || new MediaStream([e.track]);
+      attachRemoteStream(remoteVideo, stream);
     });
     conn.addEventListener('connectionstatechange', () => {
       if (['failed', 'closed'].includes(conn.connectionState) && currentCall) {
@@ -403,15 +426,19 @@
 
       if (isVideo && localStream) {
         const localVideo = document.getElementById('call-local-video');
-        if (localVideo) localVideo.srcObject = localStream;
+        if (localVideo) {
+          localVideo.srcObject = localStream;
+          localVideo.play().catch(() => {}); // already muted, so this should never be blocked
+        }
       }
-      // Re-attach the remote stream if we already had one (e.g. re-render after toggling mic).
+      // Re-attach the remote stream if we already had one (e.g. re-render after toggling mic,
+      // or the 'track' event fired before this overlay existed).
       const remoteVideo = document.getElementById('call-remote-video');
       if (remoteVideo && pc) {
         const receivers = pc.getReceivers().filter((r) => r.track);
         if (receivers.length) {
           const stream = new MediaStream(receivers.map((r) => r.track));
-          remoteVideo.srcObject = stream;
+          attachRemoteStream(remoteVideo, stream);
           if (!isVideo) remoteVideo.style.display = '';
         }
       }
