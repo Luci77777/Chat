@@ -30,6 +30,31 @@ def is_turn_configured():
     return bool(getattr(settings, 'METERED_APP_DOMAIN', '') and getattr(settings, 'METERED_API_KEY', ''))
 
 
+def _normalize_ice_server(entry):
+    """
+    RTCPeerConnection throws synchronously if any entry in `iceServers`
+    doesn't have a valid `urls` field — and since that constructor call
+    happens deep inside the call-setup flow, an unexpected shape from a
+    third-party API can silently kill the whole call with no visible error.
+    Some TURN providers (and older Metered/Twilio-style responses) use the
+    singular `url` key instead of `urls`; normalize that, and drop anything
+    that still doesn't have a usable URL.
+    """
+    if not isinstance(entry, dict):
+        return None
+
+    urls = entry.get('urls') or entry.get('url')
+    if not urls or not isinstance(urls, (str, list)):
+        return None
+
+    normalized = {'urls': urls}
+    if entry.get('username'):
+        normalized['username'] = entry['username']
+    if entry.get('credential'):
+        normalized['credential'] = entry['credential']
+    return normalized
+
+
 def get_ice_servers():
     """
     Returns a list of RTCIceServer dicts: our free STUN servers, plus (if
@@ -50,8 +75,14 @@ def get_ice_servers():
         resp.raise_for_status()
         turn_servers = resp.json()
         if isinstance(turn_servers, list):
-            servers.extend(turn_servers)
-    except (requests.RequestException, ValueError):
-        pass  # degrade to STUN-only rather than break call setup
+            for entry in turn_servers:
+                normalized = _normalize_ice_server(entry)
+                if normalized:
+                    servers.append(normalized)
+    except Exception:
+        # Degrade to STUN-only rather than break call setup — this must
+        # never raise, since createPeerConnection() awaits this endpoint
+        # on every single call attempt.
+        pass
 
     return servers

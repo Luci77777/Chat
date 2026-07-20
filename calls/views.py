@@ -49,8 +49,13 @@ def start_call(request, username):
     if kind not in (Call.KIND_AUDIO, Call.KIND_VIDEO):
         return JsonResponse({'error': 'invalid kind'}, status=400)
 
-    offer_sdp = request.POST.get('offer_sdp', '').strip()
-    if not offer_sdp:
+    # NOTE: don't .strip() the SDP itself — a valid SDP's last line must end
+    # with a trailing CRLF, and str.strip() removes that terminator, which
+    # made strict WebRTC SDP parsers (e.g. Chrome) throw "Invalid SDP line"
+    # on the final attribute line and kill call setup. Only check-for-blank
+    # on a stripped copy; store the original untouched.
+    offer_sdp = request.POST.get('offer_sdp', '')
+    if not offer_sdp.strip():
         return JsonResponse({'error': 'missing offer_sdp'}, status=400)
 
     existing = Call.objects.filter(
@@ -98,8 +103,11 @@ def accept_call(request, call_id):
     if call.status != Call.STATUS_RINGING:
         return JsonResponse({'error': 'call not ringing', 'status': call.status}, status=409)
 
-    answer_sdp = request.POST.get('answer_sdp', '').strip()
-    if not answer_sdp:
+    # Same reasoning as start_call: don't strip the SDP itself, only check
+    # for blank on a stripped copy — stripping the real value corrupts the
+    # required trailing CRLF on its last line.
+    answer_sdp = request.POST.get('answer_sdp', '')
+    if not answer_sdp.strip():
         return JsonResponse({'error': 'missing answer_sdp'}, status=400)
 
     call.answer_sdp = answer_sdp
