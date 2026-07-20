@@ -460,6 +460,15 @@ input:focus{outline:2px solid var(--navy); outline-offset:1px; background:#fff;}
 .call-video-stage.audio-only{
   width:auto; height:auto; background:transparent;
 }
+.call-video-stage video#call-self-preview{
+  transform:scaleX(-1); /* mirror, like a real front-camera preview */
+}
+.call-ringing-scrim{
+  position:absolute; inset:0;
+  background:rgba(15,14,21,0.55);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:20px;
+}
 
 .call-controls{display:flex; gap:14px; align-items:center;}
 .call-ctrl-btn{

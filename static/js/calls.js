@@ -52,11 +52,23 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
       body: new URLSearchParams(fields).toString(),
-    }).then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })));
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })))
+      .catch((e) => {
+        // Network failure, or a non-JSON response (e.g. a transient proxy/error page) —
+        // never let this throw, or it silently kills whichever poll loop called it.
+        console.error('post failed:', url, e);
+        return { ok: false, status: 0, data: null };
+      });
   }
 
   function get(url) {
-    return fetch(url).then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })));
+    return fetch(url)
+      .then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })))
+      .catch((e) => {
+        console.error('get failed:', url, e);
+        return { ok: false, status: 0, data: null };
+      });
   }
 
   // ----- ringtone (pure Web Audio, no files/API needed) -------------------
@@ -121,10 +133,26 @@
     });
   }
 
+  const FALLBACK_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  function sanitizeIceServers(list) {
+    if (!Array.isArray(list)) return FALLBACK_ICE_SERVERS;
+    const clean = list.filter((s) => s && (typeof s.urls === 'string' || Array.isArray(s.urls)));
+    return clean.length ? clean : FALLBACK_ICE_SERVERS;
+  }
+
   async function createPeerConnection() {
     const res = await get(iceUrl);
-    const iceServers = (res.ok && res.data.ice_servers) || [{ urls: 'stun:stun.l.google.com:19302' }];
-    const conn = new RTCPeerConnection({ iceServers });
+    const iceServers = sanitizeIceServers(res.ok && res.data.ice_servers);
+    let conn;
+    try {
+      conn = new RTCPeerConnection({ iceServers });
+    } catch (e) {
+      // A malformed ice server entry throws synchronously here — never let
+      // that take down the whole call silently. Retry STUN-only.
+      console.error('RTCPeerConnection construction failed, retrying STUN-only:', e);
+      conn = new RTCPeerConnection({ iceServers: FALLBACK_ICE_SERVERS });
+    }
     conn.addEventListener('track', (e) => {
       const remoteVideo = document.getElementById('call-remote-video');
       if (!remoteVideo) return; // overlay isn't rendered yet — renderOverlay('active') re-attaches from getReceivers()
@@ -161,62 +189,92 @@
   }
 
   // ----- outgoing call ---------------------------------------------------
+  let callSetupInProgress = false; // true from the first click until currentCall is set (or setup fails)
+
   async function startCall(username, kind) {
-    if (currentCall) return; // already on a call — simple "line busy" guard
+    if (currentCall || callSetupInProgress) return; // already on/starting a call — "line busy" guard
+    callSetupInProgress = true;
 
-    let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: kind === 'video' });
-    } catch (e) {
-      alert("Couldn't access your microphone/camera. Check your browser's permission settings and try again.");
-      return;
-    }
-    localStream = stream;
-
-    pc = await createPeerConnection();
-    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await waitForIceGatheringComplete(pc);
-
-    const res = await post(`/calls/start/${encodeURIComponent(username)}/`, {
-      kind,
-      offer_sdp: pc.localDescription.sdp,
-    });
-
-    if (!res.ok) {
-      teardown();
-      if (res.status === 409) alert("You're already on a call.");
-      else alert('Could not start the call. Please try again.');
-      return;
-    }
-
-    currentCall = {
-      id: res.data.id,
-      kind: res.data.kind,
-      isCaller: true,
-      otherUsername: res.data.other_username,
-      otherAvatarColor: res.data.other_avatar_color,
-    };
-    renderOverlay('outgoing-ringing');
-    ringTimeoutTimer = setTimeout(() => {
-      if (currentCall && currentCall.id === res.data.id) {
-        post(`/calls/${res.data.id}/end/`, {});
-        teardown();
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: kind === 'video' });
+      } catch (e) {
+        alert("Couldn't access your microphone/camera. Check your browser's permission settings and try again.");
+        return;
       }
-    }, RING_TIMEOUT_MS);
-    pollOutgoingStatus();
+      localStream = stream;
+
+      let localPc;
+      try {
+        localPc = await createPeerConnection();
+        stream.getTracks().forEach((t) => localPc.addTrack(t, stream));
+
+        const offer = await localPc.createOffer();
+        await localPc.setLocalDescription(offer);
+        await waitForIceGatheringComplete(localPc);
+      } catch (e) {
+        console.error('startCall setup failed:', e);
+        pc = localPc || null;
+        teardown();
+        alert('Could not start the call. Please try again.');
+        return;
+      }
+      pc = localPc; // only now published — nothing else touches shared `pc` until this point
+
+      const res = await post(`/calls/start/${encodeURIComponent(username)}/`, {
+        kind,
+        offer_sdp: pc.localDescription.sdp,
+      });
+
+      if (!res.ok) {
+        teardown();
+        if (res.status === 409) alert("You're already on a call.");
+        else alert('Could not start the call. Please try again.');
+        return;
+      }
+
+      currentCall = {
+        id: res.data.id,
+        kind: res.data.kind,
+        isCaller: true,
+        otherUsername: res.data.other_username,
+        otherAvatarColor: res.data.other_avatar_color,
+      };
+      renderOverlay('outgoing-ringing');
+      ringTimeoutTimer = setTimeout(() => {
+        if (currentCall && currentCall.id === res.data.id) {
+          post(`/calls/${res.data.id}/end/`, {});
+          teardown();
+        }
+      }, RING_TIMEOUT_MS);
+      pollOutgoingStatus();
+    } finally {
+      callSetupInProgress = false;
+    }
   }
 
   async function pollOutgoingStatus() {
     if (!currentCall || !currentCall.isCaller) return;
     const { data, ok } = await get(`/calls/${currentCall.id}/status/`);
-    if (!ok || !currentCall) return;
+    if (!currentCall) return;
+    if (!ok) {
+      // Transient network/proxy hiccup — keep ringing and retry rather than dying silently.
+      pollTimer = setTimeout(pollOutgoingStatus, RINGING_POLL_MS);
+      return;
+    }
 
     if (data.status === 'accepted' && pc && pc.signalingState !== 'stable') {
       clearTimeout(ringTimeoutTimer);
-      await pc.setRemoteDescription({ type: 'answer', sdp: data.answer_sdp });
+      try {
+        await pc.setRemoteDescription({ type: 'answer', sdp: data.answer_sdp });
+      } catch (e) {
+        console.error('Failed to apply answer SDP:', e, '\nanswer_sdp was:', data.answer_sdp);
+        teardown();
+        post(`/calls/${currentCall.id}/end/`, {});
+        alert('Could not connect the call. Please try again.');
+        return;
+      }
       enterActiveCall();
       return;
     }
@@ -252,7 +310,11 @@
   async function watchIncomingCancelled() {
     if (!currentCall || currentCall.isCaller) return;
     const { ok, data } = await get(`/calls/${currentCall.id}/status/`);
-    if (!ok) return;
+    if (!currentCall) return;
+    if (!ok) {
+      pollTimer = setTimeout(watchIncomingCancelled, RINGING_POLL_MS);
+      return;
+    }
     if (data.status !== 'ringing') {
       // caller hung up / call timed out before we responded
       stopRingtone();
@@ -264,38 +326,54 @@
   }
 
   async function acceptIncomingCall() {
-    if (!currentCall) return;
+    if (!currentCall || callSetupInProgress) return;
+    callSetupInProgress = true;
     const call = currentCall;
     stopRingtone();
     clearTimeout(pollTimer);
     renderBanner(null);
 
-    let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.kind === 'video' });
-    } catch (e) {
-      alert("Couldn't access your microphone/camera. Check your browser's permission settings and try again.");
-      post(`/calls/${call.id}/decline/`, {});
-      currentCall = null;
-      return;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.kind === 'video' });
+      } catch (e) {
+        alert("Couldn't access your microphone/camera. Check your browser's permission settings and try again.");
+        post(`/calls/${call.id}/decline/`, {});
+        currentCall = null;
+        return;
+      }
+      localStream = stream;
+
+      let localPc;
+      try {
+        localPc = await createPeerConnection();
+        stream.getTracks().forEach((t) => localPc.addTrack(t, stream));
+        await localPc.setRemoteDescription({ type: 'offer', sdp: call.offerSdp });
+
+        const answer = await localPc.createAnswer();
+        await localPc.setLocalDescription(answer);
+        await waitForIceGatheringComplete(localPc);
+      } catch (e) {
+        console.error('acceptIncomingCall setup failed:', e, '\noffer_sdp was:', call.offerSdp);
+        pc = localPc || null;
+        teardown();
+        alert('Could not connect the call. Please try again.');
+        post(`/calls/${call.id}/decline/`, {});
+        return;
+      }
+      pc = localPc; // only now published — nothing else touches shared `pc` until this point
+
+      const res = await post(`/calls/${call.id}/accept/`, { answer_sdp: pc.localDescription.sdp });
+      if (!res.ok) {
+        teardown();
+        alert('Could not connect the call.');
+        return;
+      }
+      enterActiveCall();
+    } finally {
+      callSetupInProgress = false;
     }
-    localStream = stream;
-
-    pc = await createPeerConnection();
-    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-    await pc.setRemoteDescription({ type: 'offer', sdp: call.offerSdp });
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await waitForIceGatheringComplete(pc);
-
-    const res = await post(`/calls/${call.id}/accept/`, { answer_sdp: pc.localDescription.sdp });
-    if (!res.ok) {
-      teardown();
-      alert('Could not connect the call.');
-      return;
-    }
-    enterActiveCall();
   }
 
   function declineIncomingCall() {
@@ -393,15 +471,37 @@
     const isVideo = call.kind === 'video';
 
     if (mode === 'outgoing-ringing') {
-      overlayRoot.innerHTML = `
-        <div class="call-overlay">
-          <div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
-          <div class="call-peer-name">${call.otherUsername}</div>
-          <div class="call-status-text">Ringing…</div>
-          <div class="call-controls">
-            <button class="call-ctrl-btn hangup" id="call-hangup-btn" title="Cancel">✕</button>
-          </div>
-        </div>`;
+      if (isVideo && localStream) {
+        overlayRoot.innerHTML = `
+          <div class="call-overlay">
+            <div class="call-video-stage">
+              <video id="call-self-preview" autoplay playsinline muted></video>
+              <div class="call-ringing-scrim">
+                <div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+                <div class="call-peer-name">${call.otherUsername}</div>
+                <div class="call-status-text">Ringing…</div>
+              </div>
+            </div>
+            <div class="call-controls">
+              <button class="call-ctrl-btn hangup" id="call-hangup-btn" title="Cancel">✕</button>
+            </div>
+          </div>`;
+        const selfPreview = document.getElementById('call-self-preview');
+        if (selfPreview) {
+          selfPreview.srcObject = localStream;
+          selfPreview.play().catch(() => {}); // muted, so this should never be blocked
+        }
+      } else {
+        overlayRoot.innerHTML = `
+          <div class="call-overlay">
+            <div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+            <div class="call-peer-name">${call.otherUsername}</div>
+            <div class="call-status-text">Ringing…</div>
+            <div class="call-controls">
+              <button class="call-ctrl-btn hangup" id="call-hangup-btn" title="Cancel">✕</button>
+            </div>
+          </div>`;
+      }
       document.getElementById('call-hangup-btn').addEventListener('click', hangUp);
       return;
     }
