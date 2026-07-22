@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Log in · Pingback{% endblock %}
 {% block auth_body %}
-<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
-  <div class="card" style="width:360px;">
+<div class="auth-wrap">
+  <div class="card auth-card">
     <div class="brand" style="margin-bottom:22px;"><span class="dot"></span><span>Pingback</span></div>
     <h2 style="margin:0 0 4px 0; font-size:1.3rem;">Welcome back</h2>
     <p class="text-muted" style="margin-top:0; margin-bottom:20px; font-size:0.88rem;">Log in to see your messages.</p>
@@ -21,7 +21,7 @@
         <label for="{{ form.password.id_for_label }}">Password</label>
         {{ form.password }}
       </div>
-      <button class="btn btn-primary" style="width:100%; justify-content:center;" type="submit">Log in</button>
+      <button class="btn btn-primary btn-block" type="submit">Log in</button>
     </form>
     <p class="text-muted" style="font-size:0.85rem; margin-top:18px; text-align:center;">
       New here? <a href="{% url 'accounts:signup' %}">Create an account</a>

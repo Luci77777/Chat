@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Sign up · Pingback{% endblock %}
 {% block auth_body %}
-<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
-  <div class="card" style="width:380px;">
+<div class="auth-wrap">
+  <div class="card auth-card">
     <div class="brand" style="margin-bottom:22px;"><span class="dot"></span><span>Pingback</span></div>
     <h2 style="margin:0 0 4px 0; font-size:1.3rem;">Create your account</h2>
     <p class="text-muted" style="margin-top:0; margin-bottom:20px; font-size:0.88rem;">Pick a username — that's how friends will find you.</p>
@@ -12,7 +12,7 @@
       <div class="form-row">
         <label for="{{ form.username.id_for_label }}">Username</label>
         {{ form.username }}
-        {% if form.username.errors %}<p class="text-muted" style="color:var(--coral-dark); font-size:0.8rem;">{{ form.username.errors.0 }}</p>{% endif %}
+        {% if form.username.errors %}<p class="field-error">{{ form.username.errors.0 }}</p>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.email.id_for_label }}">Email <span class="text-muted">(optional)</span></label>
@@ -21,14 +21,14 @@
       <div class="form-row">
         <label for="{{ form.password1.id_for_label }}">Password</label>
         {{ form.password1 }}
-        {% if form.password1.errors %}<p class="text-muted" style="color:var(--coral-dark); font-size:0.8rem;">{{ form.password1.errors.0 }}</p>{% endif %}
+        {% if form.password1.errors %}<p class="field-error">{{ form.password1.errors.0 }}</p>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.password2.id_for_label }}">Confirm password</label>
         {{ form.password2 }}
-        {% if form.password2.errors %}<p class="text-muted" style="color:var(--coral-dark); font-size:0.8rem;">{{ form.password2.errors.0 }}</p>{% endif %}
+        {% if form.password2.errors %}<p class="field-error">{{ form.password2.errors.0 }}</p>{% endif %}
       </div>
-      <button class="btn btn-primary" style="width:100%; justify-content:center;" type="submit">Create account</button>
+      <button class="btn btn-primary btn-block" type="submit">Create account</button>
     </form>
     <p class="text-muted" style="font-size:0.85rem; margin-top:18px; text-align:center;">
       Already have an account? <a href="{% url 'accounts:login' %}">Log in</a>

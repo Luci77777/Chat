@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Find people · Pingback{% endblock %}
 {% block body %}
-<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Find people</h2></div>
+<div class="topbar"><h2>Find people</h2></div>
 <div class="content">
   {% if messages %}
     <div class="messages-fw">
@@ -33,15 +33,17 @@
             <div class="name">{{ u.username }}</div>
             {% if u.bio %}<div class="sub">{{ u.bio }}</div>{% endif %}
           </div>
-          {% if u.relation == 'friends' %}
-            <a class="btn btn-ghost btn-sm" href="{% url 'chat:room' u.username %}">Message</a>
-          {% elif u.relation == 'pending_sent' %}
-            <button class="btn btn-ghost btn-sm" disabled>Request sent</button>
-          {% elif u.relation == 'pending_received' %}
-            <a class="btn btn-coral btn-sm" href="{% url 'friends:requests' %}">Respond</a>
-          {% else %}
-            <a class="btn btn-primary btn-sm" href="{% url 'friends:send_request' u.username %}">Add friend</a>
-          {% endif %}
+          <div class="row-actions">
+            {% if u.relation == 'friends' %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'chat:room' u.username %}">Message</a>
+            {% elif u.relation == 'pending_sent' %}
+              <button class="btn btn-ghost btn-sm" disabled>Request sent</button>
+            {% elif u.relation == 'pending_received' %}
+              <a class="btn btn-coral btn-sm" href="{% url 'friends:requests' %}">Respond</a>
+            {% else %}
+              <a class="btn btn-primary btn-sm" href="{% url 'friends:send_request' u.username %}">Add friend</a>
+            {% endif %}
+          </div>
         </div>
       {% endfor %}
     {% endif %}

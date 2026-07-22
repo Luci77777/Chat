@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Your profile · Pingback{% endblock %}
 {% block body %}
-<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Your profile</h2></div>
+<div class="topbar"><h2>Your profile</h2></div>
 <div class="content">
   {% if messages %}
     <div class="messages-fw">
@@ -10,11 +10,11 @@
   {% endif %}
 
   <div class="card">
-    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
       <div class="avatar lg" style="background:{{ user.avatar_color }};">{{ user.username|first|upper }}</div>
-      <div>
-        <div style="font-weight:700; font-size:1.05rem;">{{ user.username }}</div>
-        <div class="text-muted" style="font-size:0.85rem;">{{ user.email|default:"No email on file" }}</div>
+      <div style="min-width:0;">
+        <div style="font-weight:700; font-size:1.05rem; overflow-wrap:anywhere;">{{ user.username }}</div>
+        <div class="text-muted" style="font-size:0.85rem; overflow-wrap:anywhere;">{{ user.email|default:"No email on file" }}</div>
       </div>
     </div>
     <form method="post">
@@ -25,6 +25,19 @@
       </div>
       <button class="btn btn-primary" type="submit">Save changes</button>
     </form>
+  </div>
+
+  <div class="card mt-24">
+    <div class="row-between" style="flex-wrap:wrap; gap:12px;">
+      <div>
+        <div style="font-weight:600;">Log out</div>
+        <div class="text-muted" style="font-size:0.85rem;">End your session on this device.</div>
+      </div>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button class="btn btn-danger" type="submit">Log out</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

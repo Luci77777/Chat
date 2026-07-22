@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Friends · Pingback{% endblock %}
 {% block body %}
-<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Your friends</h2></div>
+<div class="topbar"><h2>Your friends</h2></div>
 <div class="content">
   {% if messages %}
     <div class="messages-fw">
@@ -23,9 +23,11 @@
             <div class="name">{{ f.username }}</div>
             {% if f.bio %}<div class="sub">{{ f.bio }}</div>{% endif %}
           </div>
-          <a class="btn btn-primary btn-sm" href="{% url 'chat:room' f.username %}">Message</a>
-          <a class="btn btn-danger btn-sm" href="{% url 'friends:remove_friend' f.username %}"
-             onclick="return confirm('Remove {{ f.username }} from your friends?');">Remove</a>
+          <div class="row-actions">
+            <a class="btn btn-primary btn-sm" href="{% url 'chat:room' f.username %}">Message</a>
+            <a class="btn btn-danger btn-sm" href="{% url 'friends:remove_friend' f.username %}"
+               onclick="return confirm('Remove {{ f.username }} from your friends?');">Remove</a>
+          </div>
         </div>
       {% endfor %}
     {% endif %}

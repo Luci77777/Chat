@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Chats · Pingback{% endblock %}
 {% block body %}
-<div class="topbar"><h2 style="margin:0; font-size:1.15rem;">Chats</h2></div>
+<div class="topbar"><h2>Chats</h2></div>
 <div class="content">
   <div class="card" id="inbox-card" data-inbox-url="{% url 'chat:inbox_data' %}" data-room-base="/chat/with/">
     {% if not conversations %}
