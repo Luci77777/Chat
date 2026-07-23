@@ -21,10 +21,22 @@ class SignUpForm(UserCreationForm):
         return user
 
 
+MAX_AVATAR_BYTES = 8 * 1024 * 1024  # 8MB — Cloudinary resizes it down anyway
+
+
 class ProfileForm(forms.ModelForm):
+    avatar = forms.ImageField(required=False, help_text='JPG or PNG, up to 8MB.')
+    remove_avatar = forms.BooleanField(required=False)
+
     class Meta:
         model = User
         fields = ('bio',)
         widgets = {
             'bio': forms.TextInput(attrs={'placeholder': "Say something about yourself…", 'maxlength': 160}),
         }
+
+    def clean_avatar(self):
+        file = self.cleaned_data.get('avatar')
+        if file and file.size > MAX_AVATAR_BYTES:
+            raise forms.ValidationError('That image is too large — please use one under 8MB.')
+        return file

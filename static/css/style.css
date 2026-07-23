@@ -565,6 +565,105 @@ input:focus, textarea:focus{outline:2px solid var(--navy); outline-offset:1px; b
 
 .call-btn-row{display:flex; gap:8px;}
 
+/* ---------- Group chat ---------- */
+.bubble-row .sender-label{
+  font-size:0.72rem;
+  font-weight:600;
+  color:var(--muted);
+  margin:0 0 3px 2px;
+}
+.bubble-col{display:flex; flex-direction:column; max-width:72%;}
+.bubble-row.mine .bubble-col{align-items:flex-end;}
+.bubble-col .bubble{max-width:100%;}
+
+.system-msg{
+  align-self:center;
+  color:var(--muted);
+  font-size:0.78rem;
+  background:var(--bg);
+  border:1px solid var(--border);
+  padding:5px 12px;
+  border-radius:999px;
+  margin:4px 0;
+}
+
+.chat-header .member-count{color:var(--muted); font-size:0.78rem;}
+.group-actions{display:flex; gap:8px; flex-shrink:0;}
+
+/* ---------- Group call bar (inline, within the chat room) ---------- */
+.group-call-bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 20px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+  flex-wrap:wrap;
+}
+.group-call-bar.active{background:#EAF7F5;}
+.group-call-bar .pulse-dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--mint);
+  display:inline-block;
+  animation:pulse-ring 1.4s ease-out infinite;
+}
+
+/* ---------- Group call overlay (mesh video grid) ---------- */
+.group-call-overlay{
+  position:fixed; inset:0;
+  background:rgba(20,19,28,0.96);
+  z-index:1100;
+  display:flex;
+  flex-direction:column;
+  color:#fff;
+  padding:16px 16px calc(16px + var(--safe-b));
+  gap:14px;
+}
+.group-call-topbar{
+  text-align:center;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:0.85rem;
+  color:#C9C6D6;
+}
+.group-call-grid{
+  flex:1;
+  display:grid;
+  gap:10px;
+  grid-template-columns:repeat(2, 1fr);
+  align-content:center;
+  overflow-y:auto;
+}
+.group-call-grid[data-count="1"]{grid-template-columns:1fr;}
+.group-call-grid[data-count="3"], .group-call-grid[data-count="4"]{grid-template-columns:repeat(2, 1fr);}
+.group-call-grid[data-count="5"], .group-call-grid[data-count="6"]{grid-template-columns:repeat(3, 1fr);}
+
+.group-call-tile{
+  position:relative;
+  background:#0F0E15;
+  border-radius:14px;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  aspect-ratio:4/3;
+}
+.group-call-tile video{width:100%; height:100%; object-fit:cover;}
+.group-call-tile video.mirrored{transform:scaleX(-1);}
+.group-call-tile .tile-avatar{
+  width:64px; height:64px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:700; font-family:'Fraunces', serif; font-size:1.4rem;
+  object-fit:cover;
+}
+.group-call-tile .tile-name{
+  position:absolute; left:8px; bottom:8px;
+  font-size:0.72rem;
+  background:rgba(0,0,0,0.5);
+  padding:2px 8px;
+  border-radius:999px;
+}
+
 /* ---------- Utility ---------- */
 .row-between{display:flex; align-items:center; justify-content:space-between;}
 .stack{display:flex; flex-direction:column; gap:10px;}
@@ -672,6 +771,10 @@ input:focus, textarea:focus{outline:2px solid var(--navy); outline-offset:1px; b
   .list-row .row-actions .btn{flex:1; min-width:100px;}
 
   .auth-card{max-width:420px;}
+
+  .group-call-bar{padding:8px 14px; font-size:0.85rem;}
+  .group-call-grid{grid-template-columns:1fr !important;}
+  .bubble-col{max-width:84%;}
 }
 
 @media (max-width: 380px){

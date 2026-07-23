@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 {% block title %}Find people · Pingback{% endblock %}
 {% block body %}
 <div class="topbar"><h2>Find people</h2></div>
@@ -28,7 +29,7 @@
     {% else %}
       {% for u in results %}
         <div class="list-row">
-          <div class="avatar sm" style="background:{{ u.avatar_color }};">{{ u.username|first|upper }}</div>
+          {% avatar u 'sm' %}
           <div class="meta">
             <div class="name">{{ u.username }}</div>
             {% if u.bio %}<div class="sub">{{ u.bio }}</div>{% endif %}

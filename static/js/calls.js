@@ -240,6 +240,7 @@
         isCaller: true,
         otherUsername: res.data.other_username,
         otherAvatarColor: res.data.other_avatar_color,
+        otherAvatarUrl: res.data.other_avatar_url,
       };
       renderOverlay('outgoing-ringing');
       ringTimeoutTimer = setTimeout(() => {
@@ -300,6 +301,7 @@
       isCaller: false,
       otherUsername: call.other_username,
       otherAvatarColor: call.other_avatar_color,
+      otherAvatarUrl: call.other_avatar_url,
       offerSdp: call.offer_sdp,
     };
     renderBanner(currentCall);
@@ -435,12 +437,19 @@
     return (name || '?').charAt(0).toUpperCase();
   }
 
+  function avatarHtml(username, color, url, extraClass) {
+    const cls = `avatar${extraClass ? ' ' + extraClass : ''}`;
+    return url
+      ? `<img class="${cls}" src="${url}" alt="${username}">`
+      : `<div class="${cls}" style="background:${color};">${initials(username)}</div>`;
+  }
+
   function renderBanner(call) {
     if (!call) { bannerRoot.innerHTML = ''; return; }
     bannerRoot.innerHTML = `
       <div class="call-banner">
         <div class="who">
-          <div class="avatar pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+          ${avatarHtml(call.otherUsername, call.otherAvatarColor, call.otherAvatarUrl, 'pulse-ring')}
           <div class="txt">
             <div class="name">${call.otherUsername}</div>
             <div class="sub">Incoming ${call.kind} call…</div>
@@ -477,7 +486,7 @@
             <div class="call-video-stage">
               <video id="call-self-preview" autoplay playsinline muted></video>
               <div class="call-ringing-scrim">
-                <div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+                ${avatarHtml(call.otherUsername, call.otherAvatarColor, call.otherAvatarUrl, 'lg pulse-ring')}
                 <div class="call-peer-name">${call.otherUsername}</div>
                 <div class="call-status-text">Ringing…</div>
               </div>
@@ -494,7 +503,7 @@
       } else {
         overlayRoot.innerHTML = `
           <div class="call-overlay">
-            <div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+            ${avatarHtml(call.otherUsername, call.otherAvatarColor, call.otherAvatarUrl, 'lg pulse-ring')}
             <div class="call-peer-name">${call.otherUsername}</div>
             <div class="call-status-text">Ringing…</div>
             <div class="call-controls">
@@ -513,7 +522,7 @@
           <div class="call-video-stage ${isVideo ? '' : 'audio-only'}">
             ${isVideo
               ? '<video id="call-remote-video" autoplay playsinline></video><video id="call-local-video" autoplay playsinline muted></video>'
-              : `<div class="avatar lg pulse-ring" style="background:${call.otherAvatarColor};">${initials(call.otherUsername)}</div>
+              : `${avatarHtml(call.otherUsername, call.otherAvatarColor, call.otherAvatarUrl, 'lg pulse-ring')}
                  <video id="call-remote-video" autoplay playsinline style="display:none;"></video>`}
           </div>
           <div class="call-peer-name">${call.otherUsername}</div>

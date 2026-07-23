@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Add to {{ group.name }} · Pingback{% endblock %}
+{% block body %}
+<div class="topbar">
+  <h2>Add to "{{ group.name }}"</h2>
+  <a class="btn btn-ghost btn-sm" href="{% url 'groupchat:room' group.pk %}">Cancel</a>
+</div>
+<div class="content">
+  <div class="card">
+    {% if not form.fields.members.choices %}
+      <div class="empty-state">
+        <h3>No one left to add</h3>
+        <p>Everyone in your friends list is already in this group.</p>
+      </div>
+    {% else %}
+      {% if form.non_field_errors %}<div class="flash error">{{ form.non_field_errors.0 }}</div>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-row">
+          {% if form.members.errors %}<p class="field-error">{{ form.members.errors.0 }}</p>{% endif %}
+          <div class="stack" style="max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; padding:6px 12px;">
+            {% for checkbox in form.members %}
+              <label style="display:flex; align-items:center; gap:10px; padding:8px 0; font-weight:500; cursor:pointer;">
+                {{ checkbox.tag }} {{ checkbox.choice_label }}
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Add to group</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

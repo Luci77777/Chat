@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 {% block title %}Requests · Pingback{% endblock %}
 {% block body %}
 <div class="topbar"><h2>Friend requests</h2></div>
@@ -16,7 +17,7 @@
     {% else %}
       {% for fr in incoming %}
         <div class="list-row">
-          <div class="avatar sm" style="background:{{ fr.from_user.avatar_color }};">{{ fr.from_user.username|first|upper }}</div>
+          {% avatar fr.from_user 'sm' %}
           <div class="meta"><div class="name">{{ fr.from_user.username }}</div></div>
           <div class="row-actions">
             <a class="btn btn-primary btn-sm" href="{% url 'friends:accept_request' fr.pk %}">Accept</a>
@@ -34,7 +35,7 @@
     {% else %}
       {% for fr in outgoing %}
         <div class="list-row">
-          <div class="avatar sm" style="background:{{ fr.to_user.avatar_color }};">{{ fr.to_user.username|first|upper }}</div>
+          {% avatar fr.to_user 'sm' %}
           <div class="meta"><div class="name">{{ fr.to_user.username }}</div><div class="sub">Pending</div></div>
           <div class="row-actions">
             <a class="btn btn-ghost btn-sm" href="{% url 'friends:cancel_request' fr.pk %}">Cancel</a>

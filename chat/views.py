@@ -147,6 +147,7 @@ def inbox_data(request):
         conversations.append({
             'username': friend.username,
             'avatar_color': friend.avatar_color,
+            'avatar_url': friend.avatar_url,
             'initial': friend.username[0].upper(),
             'last_message': _preview_text(last_msg),
             'mine': last_msg.sender_id == request.user.pk if last_msg else False,

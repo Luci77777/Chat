@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'friends',
     'chat',
     'calls',
+    'groupchat',
 ]
 
 MIDDLEWARE = [
@@ -64,6 +65,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'friends.context_processors.pending_requests_count',
                 'chat.context_processors.unread_messages_count',
+                'groupchat.context_processors.unread_group_messages_count',
             ],
         },
     },
@@ -123,6 +125,25 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Free GIF/sticker search (see README for how to get a free key at klipy.com/developers).
 # The app degrades gracefully — GIF/sticker search just won't return results — if this is unset.
 KLIPY_API_KEY = os.environ.get('KLIPY_API_KEY', '')
+
+# Cloudinary — storage bucket for user-uploaded profile photos (see
+# accounts/cloudinary_client.py). Get free credentials at
+# https://cloudinary.com/users/register/free — the free tier (25 credits/mo,
+# roughly 25GB of storage+bandwidth) is plenty for avatars on a personal app.
+# Without these set, avatar upload is disabled and the app just keeps using
+# the colored letter-avatars — nothing else breaks.
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
+
+if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    import cloudinary
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
 
 # Free TURN relay for voice/video calls, via Metered / Open Relay
 # (see README "Voice & video calls"). Optional — without it, calls still

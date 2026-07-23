@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}New group · Pingback{% endblock %}
+{% block body %}
+<div class="topbar">
+  <h2>New group</h2>
+  <a class="btn btn-ghost btn-sm" href="{% url 'groupchat:list' %}">Cancel</a>
+</div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  {% if not has_friends %}
+    <div class="card">
+      <div class="empty-state">
+        <h3>Add some friends first</h3>
+        <p>You'll need at least one friend to start a group. Try <a href="{% url 'friends:search' %}">Find people</a>.</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      {% if form.non_field_errors %}<div class="flash error">{{ form.non_field_errors.0 }}</div>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-row">
+          <label for="{{ form.name.id_for_label }}">Group name</label>
+          {{ form.name }}
+          {% if form.name.errors %}<p class="field-error">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>Add friends</label>
+          {% if form.members.errors %}<p class="field-error">{{ form.members.errors.0 }}</p>{% endif %}
+          <div class="stack" style="max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; padding:6px 12px;">
+            {% for checkbox in form.members %}
+              <label style="display:flex; align-items:center; gap:10px; padding:8px 0; font-weight:500; cursor:pointer;">
+                {{ checkbox.tag }} {{ checkbox.choice_label }}
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Create group</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

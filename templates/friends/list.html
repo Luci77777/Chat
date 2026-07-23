@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 {% block title %}Friends · Pingback{% endblock %}
 {% block body %}
 <div class="topbar"><h2>Your friends</h2></div>
@@ -18,7 +19,7 @@
     {% else %}
       {% for f in friends %}
         <div class="list-row">
-          <div class="avatar sm" style="background:{{ f.avatar_color }};">{{ f.username|first|upper }}</div>
+          {% avatar f 'sm' %}
           <div class="meta">
             <div class="name">{{ f.username }}</div>
             {% if f.bio %}<div class="sub">{{ f.bio }}</div>{% endif %}

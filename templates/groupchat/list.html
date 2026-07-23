@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load avatar_tags %}
+{% block title %}Groups · Pingback{% endblock %}
+{% block body %}
+<div class="topbar">
+  <h2>Groups</h2>
+  <a class="btn btn-primary btn-sm" href="{% url 'groupchat:create' %}">+ New group</a>
+</div>
+<div class="content">
+  <div class="card">
+    {% if not groups %}
+      <div class="empty-state">
+        <h3>No groups yet</h3>
+        <p>Start one with a few friends — add photos, GIFs, and group calls once you're in.</p>
+        <a class="btn btn-primary mt-24" href="{% url 'groupchat:create' %}">Create a group</a>
+      </div>
+    {% else %}
+      {% for g in groups %}
+        <a class="list-row" style="color:inherit;" href="{% url 'groupchat:room' g.group.pk %}">
+          {% avatar g.group %}
+          <div class="meta">
+            <div class="name">{{ g.group.name }}</div>
+            <div class="sub">
+              {% if g.last_preview %}{{ g.last_preview }}{% else %}No messages yet{% endif %}
+            </div>
+          </div>
+          {% if g.unread %}<span class="badge">{{ g.unread }}</span>{% endif %}
+        </a>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

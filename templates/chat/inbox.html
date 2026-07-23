@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 {% block title %}Chats · Pingback{% endblock %}
 {% block body %}
 <div class="topbar"><h2>Chats</h2></div>
@@ -13,7 +14,7 @@
       <div id="inbox-list">
         {% for c in conversations %}
           <a class="list-row" style="color:inherit;" href="{% url 'chat:room' c.friend.username %}" data-username="{{ c.friend.username }}">
-            <div class="avatar" style="background:{{ c.friend.avatar_color }};">{{ c.friend.username|first|upper }}</div>
+            {% avatar c.friend %}
             <div class="meta">
               <div class="name">{{ c.friend.username }}</div>
               <div class="sub">
@@ -60,9 +61,12 @@
         ? (c.mine ? 'You: ' : '') + escapeHtml(c.last_message)
         : 'Say hi \uD83D\uDC4B';
       const badge = c.unread ? `<span class="badge">${c.unread > 99 ? '99+' : c.unread}</span>` : '';
+      const avatarTag = c.avatar_url
+        ? `<img class="avatar" src="${c.avatar_url}" alt="${escapeHtml(c.username)}">`
+        : `<div class="avatar" style="background:${c.avatar_color};">${escapeHtml(c.initial)}</div>`;
       return `
         <a class="list-row" style="color:inherit;" href="/chat/with/${encodeURIComponent(c.username)}/" data-username="${escapeHtml(c.username)}">
-          <div class="avatar" style="background:${c.avatar_color};">${escapeHtml(c.initial)}</div>
+          ${avatarTag}
           <div class="meta">
             <div class="name">${escapeHtml(c.username)}</div>
             <div class="sub">${preview}</div>

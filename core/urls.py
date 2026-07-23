@@ -12,6 +12,7 @@ urlpatterns = [
     path('friends/', include('friends.urls')),
     path('chat/', include('chat.urls')),
     path('calls/', include('calls.urls')),
+    path('groups/', include('groupchat.urls')),
 ]
 
 if settings.DEBUG:

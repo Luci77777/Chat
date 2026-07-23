@@ -1,39 +1,51 @@
 {% extends "base.html" %}
 {% load static %}
 {% load avatar_tags %}
-{% block title %}{{ friend.username }} · Pingback{% endblock %}
+{% block title %}{{ group.name }} · Pingback{% endblock %}
 {% block body %}
-<div class="chat-room" data-username="{{ friend.username }}"
-     data-poll-url="{% url 'chat:poll' friend.username %}"
-     data-send-url="{% url 'chat:send' friend.username %}"
-     data-gif-search-url="{% url 'chat:gif_search' %}"
+<div class="chat-room" data-group-id="{{ group.pk }}"
+     data-poll-url="{% url 'groupchat:poll' group.pk %}"
+     data-send-url="{% url 'groupchat:send' group.pk %}"
+     data-gif-search-url="{% url 'groupchat:gif_search' group.pk %}"
      data-gif-enabled="{{ gif_search_enabled|yesno:'1,0' }}">
 
   <div class="chat-header">
-    <a href="{% url 'chat:inbox' %}" class="btn btn-ghost btn-sm" aria-label="Back to chats">←</a>
-    {% avatar friend 'sm' %}
+    <a href="{% url 'groupchat:list' %}" class="btn btn-ghost btn-sm" aria-label="Back to groups">←</a>
+    {% avatar group 'sm' %}
     <div class="who">
-      <div class="fname">{{ friend.username }}</div>
-      {% if friend.bio %}<div class="fsub">{{ friend.bio }}</div>{% endif %}
+      <div class="fname">{{ group.name }}</div>
+      <div class="fsub member-count">{{ member_count }} member{{ member_count|pluralize }}</div>
     </div>
-    <div class="call-btn-row">
-      <button type="button" class="icon-btn" id="call-audio-btn" title="Voice call" aria-label="Voice call">📞</button>
-      <button type="button" class="icon-btn" id="call-video-btn" title="Video call" aria-label="Video call">🎥</button>
+    <div class="group-actions">
+      <a href="{% url 'groupchat:add_members' group.pk %}" class="btn btn-ghost btn-sm" title="Add people">+ Add</a>
+      <form method="post" action="{% url 'groupchat:leave' group.pk %}" onsubmit="return confirm('Leave {{ group.name }}?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger btn-sm">Leave</button>
+      </form>
     </div>
   </div>
 
+  <div id="group-call-bar"></div>
+
   <div class="chat-messages" id="chat-messages">
-    {% for m in chat_messages %}
-      <div class="bubble-row {% if m.sender == user %}mine{% endif %}" data-id="{{ m.pk }}">
-        {% if m.kind == 'text' %}
-          <div class="bubble">{{ m.body }}<span class="time">{{ m.created_at|time:"H:i" }}</span></div>
-        {% else %}
-          <div class="bubble media-bubble">
-            <img src="{{ m.media_url }}" alt="{{ m.get_kind_display }}" loading="lazy">
-            <span class="time">{{ m.created_at|time:"H:i" }}</span>
+    {% for m in group_messages %}
+      {% if m.kind == 'system' %}
+        <div class="system-msg" data-id="{{ m.pk }}">{{ m.body }}</div>
+      {% else %}
+        <div class="bubble-row {% if m.sender == user %}mine{% endif %}" data-id="{{ m.pk }}">
+          <div class="bubble-col">
+            {% if m.sender != user %}<div class="sender-label">{{ m.sender.username }}</div>{% endif %}
+            {% if m.kind == 'text' %}
+              <div class="bubble">{{ m.body }}<span class="time">{{ m.created_at|time:"H:i" }}</span></div>
+            {% else %}
+              <div class="bubble media-bubble">
+                <img src="{{ m.media_url }}" alt="{{ m.get_kind_display }}" loading="lazy">
+                <span class="time">{{ m.created_at|time:"H:i" }}</span>
+              </div>
+            {% endif %}
           </div>
-        {% endif %}
-      </div>
+        </div>
+      {% endif %}
     {% endfor %}
   </div>
 
@@ -63,12 +75,22 @@
       </div>
     </div>
 
-    <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off" maxlength="2000" autofocus>
+    <input type="text" id="chat-input" placeholder="Message {{ group.name }}…" autocomplete="off" maxlength="2000" autofocus>
     <button class="btn btn-primary" type="submit">Send</button>
   </form>
 </div>
 
+<div id="group-call-root"
+     data-group-id="{{ group.pk }}"
+     data-ice-url="{% url 'calls:ice_servers' %}"
+     data-my-user-id="{{ user.pk }}"
+     data-my-username="{{ user.username }}"
+     data-my-avatar-color="{{ user.avatar_color }}"
+     data-my-avatar-url="{{ user.avatar_url }}"></div>
+<div id="group-call-overlay-root"></div>
+
 <script src="{% static 'js/emoji-data.js' %}"></script>
+<script src="{% static 'js/group-calls.js' %}"></script>
 <script>
 (function () {
   const root = document.querySelector('.chat-room');
@@ -81,35 +103,54 @@
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-input');
   const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+  const myUsername = document.getElementById('group-call-root').dataset.myUsername;
 
   // ---------------------------------------------------------------
   // Shared helpers
   // ---------------------------------------------------------------
   let lastId = 0;
-  messagesEl.querySelectorAll('.bubble-row[data-id]').forEach((row) => {
+  messagesEl.querySelectorAll('[data-id]').forEach((row) => {
     const id = parseInt(row.dataset.id, 10);
     if (!isNaN(id)) lastId = Math.max(lastId, id);
   });
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s == null ? '' : s;
+    return div.innerHTML;
+  }
 
   function scrollToBottom() {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
   scrollToBottom();
 
+  function avatarHtml(username, color, url) {
+    return url
+      ? `<img class="avatar sm" src="${url}" alt="${escapeHtml(username)}">`
+      : `<div class="avatar sm" style="background:${color || '#6C63FF'};">${escapeHtml((username || '?').slice(0, 1).toUpperCase())}</div>`;
+  }
+
   function buildBubble(m) {
+    const mine = m.mine;
     const row = document.createElement('div');
-    row.className = 'bubble-row' + (m.mine ? ' mine' : '');
+    row.className = 'bubble-row' + (mine ? ' mine' : '');
     row.dataset.id = m.id;
+
+    const senderLabel = !mine ? `<div class="sender-label">${escapeHtml(m.sender_username)}</div>` : '';
 
     if (m.kind && m.kind !== 'text') {
       row.innerHTML = `
-        <div class="bubble media-bubble">
-          <img src="${m.media_url}" alt="${m.kind}" loading="lazy">
-          <span class="time"></span>
+        <div class="bubble-col">
+          ${senderLabel}
+          <div class="bubble media-bubble">
+            <img src="${m.media_url}" alt="${m.kind}" loading="lazy">
+            <span class="time"></span>
+          </div>
         </div>`;
       row.querySelector('.time').textContent = m.created_at;
     } else {
-      row.innerHTML = '<div class="bubble"></div>';
+      row.innerHTML = `<div class="bubble-col">${senderLabel}<div class="bubble"></div></div>`;
       const bubble = row.querySelector('.bubble');
       bubble.appendChild(document.createTextNode(m.body));
       const time = document.createElement('span');
@@ -282,7 +323,7 @@
 
     gifSearchInput.addEventListener('input', () => {
       clearTimeout(searchDebounce);
-      searchDebounce = setTimeout(runGifSearch, 350); // debounce so we're not hitting the API on every keystroke
+      searchDebounce = setTimeout(runGifSearch, 350);
     });
 
     gifToggle.addEventListener('click', () => {
@@ -290,30 +331,13 @@
       closePanels(willOpen ? gifPanel : null);
       gifPanel.classList.toggle('hidden', !willOpen);
       gifToggle.classList.toggle('active', willOpen);
-      if (willOpen && !gifGrid.children.length) runGifSearch(); // load trending on first open
+      if (willOpen && !gifGrid.children.length) runGifSearch();
     });
   }
 
   document.addEventListener('click', (e) => {
     if (!form.contains(e.target)) closePanels(null);
   });
-
-  // ---------------------------------------------------------------
-  // Voice / video call buttons
-  // ---------------------------------------------------------------
-  const audioCallBtn = document.getElementById('call-audio-btn');
-  const videoCallBtn = document.getElementById('call-video-btn');
-  const friendUsername = root.dataset.username;
-  if (audioCallBtn) {
-    audioCallBtn.addEventListener('click', () => {
-      if (window.PingbackCalls) window.PingbackCalls.startCall(friendUsername, 'audio');
-    });
-  }
-  if (videoCallBtn) {
-    videoCallBtn.addEventListener('click', () => {
-      if (window.PingbackCalls) window.PingbackCalls.startCall(friendUsername, 'video');
-    });
-  }
 })();
 </script>
 {% endblock %}

@@ -4,3 +4,4 @@ gunicorn>=22.0,<27.0
 dj-database-url>=2.2,<4.0
 psycopg2-binary>=2.9,<3.0
 requests>=2.31,<3.0
+cloudinary>=1.40,<2.0
