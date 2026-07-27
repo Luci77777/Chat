@@ -1,10 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from . import cloudinary_client
 from .forms import ProfileForm, SignUpForm
+from .models import User
 
 
 def signup(request):
@@ -37,7 +40,9 @@ def profile(request):
                     url, public_id = cloudinary_client.upload_avatar(avatar_file, request.user)
                 except cloudinary_client.CloudinaryError as exc:
                     messages.error(request, f"Couldn't upload that photo: {exc}")
-                    return render(request, 'accounts/profile.html', {'form': form})
+                    return render(request, 'accounts/profile.html', {
+                        'form': form, 'cloudinary_configured': cloudinary_client.is_configured(),
+                    })
                 old_public_id = request.user.avatar_public_id
                 user.avatar_url = url
                 user.avatar_public_id = public_id
@@ -57,3 +62,11 @@ def profile(request):
         'form': form,
         'cloudinary_configured': cloudinary_client.is_configured(),
     })
+
+
+@login_required
+@require_POST
+def toggle_theme(request):
+    new_theme = User.THEME_DARK if request.user.theme_preference == User.THEME_LIGHT else User.THEME_LIGHT
+    User.objects.filter(pk=request.user.pk).update(theme_preference=new_theme)
+    return JsonResponse({'theme': new_theme})

@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -338,3 +338,58 @@ def group_call_signal_poll(request, call_id):
             for s in pending
         ]
     })
+
+
+# ---------------------------------------------------------------------------
+# Call history
+# ---------------------------------------------------------------------------
+
+@login_required
+def call_history(request):
+    direct_calls = (
+        Call.objects.filter(Q(caller=request.user) | Q(callee=request.user))
+        .select_related('caller', 'callee')
+        .order_by('-created_at')[:100]
+    )
+
+    entries = []
+    for c in direct_calls:
+        other = c.callee if c.caller_id == request.user.pk else c.caller
+        duration = None
+        if c.status == Call.STATUS_ENDED and c.ended_at:
+            duration = int((c.ended_at - c.updated_at).total_seconds()) if c.updated_at < c.ended_at else 0
+        entries.append({
+            'type': 'direct',
+            'kind': c.kind,
+            'status': c.status,
+            'is_caller': c.caller_id == request.user.pk,
+            'other_label': other.username,
+            'other_avatar_color': other.avatar_color,
+            'other_avatar_url': other.avatar_url,
+            'duration': duration,
+            'created_at': c.created_at,
+        })
+
+    my_participations = (
+        GroupCallParticipant.objects.filter(user=request.user)
+        .select_related('call', 'call__group')
+        .order_by('-joined_at')[:100]
+    )
+    for p in my_participations:
+        duration = None
+        if p.left_at:
+            duration = int((p.left_at - p.joined_at).total_seconds())
+        entries.append({
+            'type': 'group',
+            'kind': p.call.kind,
+            'status': 'ended' if not p.call.is_active else 'active',
+            'is_caller': p.call.started_by_id == request.user.pk,
+            'other_label': p.call.group.name,
+            'other_avatar_color': p.call.group.avatar_color,
+            'other_avatar_url': p.call.group.avatar_url,
+            'duration': duration,
+            'created_at': p.joined_at,
+        })
+
+    entries.sort(key=lambda e: e['created_at'], reverse=True)
+    return render(request, 'calls/history.html', {'entries': entries[:100]})

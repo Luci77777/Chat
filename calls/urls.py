@@ -19,4 +19,6 @@ urlpatterns = [
     path('group/<int:call_id>/leave/', views.group_call_leave, name='group_leave'),
     path('group/<int:call_id>/signal/send/', views.group_call_signal_send, name='group_signal_send'),
     path('group/<int:call_id>/signal/poll/', views.group_call_signal_poll, name='group_signal_poll'),
+
+    path('history/', views.call_history, name='history'),
 ]
