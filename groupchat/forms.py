@@ -33,3 +33,14 @@ class AddMembersForm(forms.Form):
         if not ids:
             raise forms.ValidationError('Pick at least one friend to add.')
         return ids
+
+
+class GroupSettingsForm(forms.Form):
+    name = forms.CharField(max_length=80)
+    photo = forms.ImageField(required=False, help_text='JPG or PNG, up to 8MB.')
+
+    def clean_photo(self):
+        file = self.cleaned_data.get('photo')
+        if file and file.size > 8 * 1024 * 1024:
+            raise forms.ValidationError('That image is too large — please use one under 8MB.')
+        return file

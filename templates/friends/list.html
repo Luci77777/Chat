@@ -26,6 +26,8 @@
           </div>
           <div class="row-actions">
             <a class="btn btn-primary btn-sm" href="{% url 'chat:room' f.username %}">Message</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'friends:block_user' f.username %}"
+               onclick="return confirm('Block {{ f.username }}? They will be removed from your friends and won\'t be able to message you.');">Block</a>
             <a class="btn btn-danger btn-sm" href="{% url 'friends:remove_friend' f.username %}"
                onclick="return confirm('Remove {{ f.username }} from your friends?');">Remove</a>
           </div>

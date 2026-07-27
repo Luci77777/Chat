@@ -51,3 +51,49 @@ class Friendship(models.Model):
 
     def __str__(self):
         return f'{self.user_a} <-> {self.user_b}'
+
+
+class Block(models.Model):
+    """
+    One-directional: if A blocks B, A stops seeing/being reachable by B, but
+    B blocking A independently is a separate row. Blocking someone also
+    deletes any existing Friendship/FriendRequest between them (see
+    friends.views.block_user) — a block always wins over "still friends".
+    """
+    blocker = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='blocking', on_delete=models.CASCADE)
+    blocked = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='blocked_by', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['blocker', 'blocked'], name='unique_block')
+        ]
+
+    @staticmethod
+    def blocks(user_a, user_b):
+        """True if either direction has blocked the other — used to gate messaging/calls."""
+        return Block.objects.filter(
+            Q(blocker=user_a, blocked=user_b) | Q(blocker=user_b, blocked=user_a)
+        ).exists()
+
+    def __str__(self):
+        return f'{self.blocker} blocked {self.blocked}'
+
+
+class ConversationMute(models.Model):
+    """Muting a 1:1 conversation: messages still arrive, they just don't count toward the unread badge."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='muted_conversations', on_delete=models.CASCADE)
+    friend = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    muted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'friend'], name='unique_conversation_mute')
+        ]
+
+    @staticmethod
+    def is_muted(user, friend):
+        return ConversationMute.objects.filter(user=user, friend=friend).exists()
+
+    def __str__(self):
+        return f'{self.user} muted {self.friend}'

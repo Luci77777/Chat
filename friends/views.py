@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import FriendRequest, Friendship
+from .models import Block, FriendRequest, Friendship
 
 User = get_user_model()
 
@@ -14,13 +14,17 @@ def search_users(request):
     query = request.GET.get('q', '').strip()
     results = []
     if query:
+        blocked_either_way = set(Block.objects.filter(
+            Q(blocker=request.user) | Q(blocked=request.user)
+        ).values_list('blocker_id', 'blocked_id'))
+        blocked_ids = {a for pair in blocked_either_way for a in pair if a != request.user.pk}
+
         results = (
             User.objects.filter(username__icontains=query)
             .exclude(pk=request.user.pk)
+            .exclude(pk__in=blocked_ids)
             .order_by('username')[:25]
         )
-        # Attach relationship status for each result so the template can
-        # show the right button (Add / Pending / Friends).
         sent_ids = set(FriendRequest.objects.filter(from_user=request.user).values_list('to_user_id', flat=True))
         received_ids = set(FriendRequest.objects.filter(to_user=request.user).values_list('from_user_id', flat=True))
         friend_ids = {f.pk for f in Friendship.friends_of(request.user)}
@@ -56,10 +60,11 @@ def send_request(request, username):
     target = get_object_or_404(User, username=username)
     if target == request.user:
         messages.error(request, "You can't friend yourself.")
+    elif Block.blocks(request.user, target):
+        messages.error(request, "You can't send a friend request to this person.")
     elif Friendship.are_friends(request.user, target):
         messages.info(request, f'You and {target.username} are already friends.')
     elif FriendRequest.objects.filter(from_user=target, to_user=request.user).exists():
-        # They already sent us one — just accept it instead of duplicating.
         FriendRequest.objects.filter(from_user=target, to_user=request.user).delete()
         Friendship.create(request.user, target)
         messages.success(request, f'You and {target.username} are now friends!')
@@ -102,3 +107,36 @@ def remove_friend(request, username):
     Friendship.objects.filter(user_a=a, user_b=b).delete()
     messages.info(request, f'Removed {other.username} from your friends.')
     return redirect('friends:list')
+
+
+@login_required
+def block_user(request, username):
+    target = get_object_or_404(User, username=username)
+    if target == request.user:
+        messages.error(request, "You can't block yourself.")
+        return redirect(request.META.get('HTTP_REFERER', 'friends:list'))
+
+    Block.objects.get_or_create(blocker=request.user, blocked=target)
+
+    a, b = sorted([request.user, target], key=lambda u: u.pk)
+    Friendship.objects.filter(user_a=a, user_b=b).delete()
+    FriendRequest.objects.filter(
+        Q(from_user=request.user, to_user=target) | Q(from_user=target, to_user=request.user)
+    ).delete()
+
+    messages.success(request, f'Blocked {target.username}.')
+    return redirect('chat:inbox')
+
+
+@login_required
+def unblock_user(request, username):
+    target = get_object_or_404(User, username=username)
+    Block.objects.filter(blocker=request.user, blocked=target).delete()
+    messages.success(request, f'Unblocked {target.username}.')
+    return redirect('friends:blocked')
+
+
+@login_required
+def blocked_list(request):
+    blocked = Block.objects.filter(blocker=request.user).select_related('blocked').order_by('-created_at')
+    return render(request, 'friends/blocked.html', {'blocked': blocked})

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{% if user.is_authenticated %}{{ user.theme_preference }}{% else %}light{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -38,6 +38,10 @@
       <a class="nav-link {% if request.resolver_match.view_name == 'accounts:profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">
         <span class="label-row"><span class="icon" aria-hidden="true">👤</span><span class="label">{{ user.username }}</span></span>
       </a>
+      <button type="button" class="theme-toggle" id="theme-toggle-btn" data-toggle-url="{% url 'accounts:toggle_theme' %}">
+        <span id="theme-toggle-icon">{% if user.theme_preference == 'dark' %}☀️{% else %}🌙{% endif %}</span>
+        <span class="label">{% if user.theme_preference == 'dark' %}Light mode{% else %}Dark mode{% endif %}</span>
+      </button>
       <form method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}
         <button class="btn btn-ghost btn-sm btn-block" type="submit">Log out</button>
@@ -56,6 +60,26 @@
 <script src="{% static 'js/calls.js' %}"
         data-ice-url="{% url 'calls:ice_servers' %}"
         data-incoming-url="{% url 'calls:incoming' %}"></script>
+<script>
+(function () {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  const icon = document.getElementById('theme-toggle-icon');
+  const label = btn.querySelector('.label');
+  const csrfToken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
+  btn.addEventListener('click', async () => {
+    const wasDark = document.documentElement.dataset.theme === 'dark';
+    const nextTheme = wasDark ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nextTheme;
+    icon.textContent = nextTheme === 'dark' ? '\u2600\ufe0f' : '\ud83c\udf19';
+    label.textContent = nextTheme === 'dark' ? 'Light mode' : 'Dark mode';
+    try {
+      await fetch(btn.dataset.toggleUrl, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+    } catch (e) { /* the flip already happened locally; persistence can retry next toggle */ }
+  });
+})();
+</script>
 {% block extra_script %}{% endblock %}
 {% else %}
   {% block auth_body %}{% endblock %}

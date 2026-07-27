@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Call history · Pingback{% endblock %}
+{% block body %}
+<div class="topbar"><h2>Call history</h2></div>
+<div class="content">
+  <div class="card">
+    {% if not entries %}
+      <div class="empty-state">
+        <h3>No calls yet</h3>
+        <p>Voice and video calls you make or receive will show up here.</p>
+      </div>
+    {% else %}
+      {% for e in entries %}
+        <div class="call-history-row">
+          <span class="ch-icon">{% if e.kind == 'video' %}🎥{% else %}📞{% endif %}</span>
+          {% if e.other_avatar_url %}
+            <img class="avatar sm" src="{{ e.other_avatar_url }}" alt="{{ e.other_label }}">
+          {% else %}
+            <div class="avatar sm" style="background:{{ e.other_avatar_color }};">{{ e.other_label|first|upper }}</div>
+          {% endif %}
+          <div class="ch-meta">
+            <div class="name">{{ e.other_label }}{% if e.type == 'group' %} (group){% endif %}</div>
+            <div class="ch-status {% if e.status == 'missed' %}missed{% endif %}">
+              {% if e.type == 'direct' %}
+                {% if e.status == 'missed' %}Missed{% elif e.is_caller %}Outgoing{% else %}Incoming{% endif %}
+                {% if e.duration is not None %} · {{ e.duration }}s{% endif %}
+              {% else %}
+                {% if e.is_caller %}Started{% else %}Joined{% endif %} group call
+                {% if e.duration is not None %} · {{ e.duration }}s{% endif %}
+              {% endif %}
+            </div>
+          </div>
+          <div class="ch-time">{{ e.created_at|date:"M j, H:i" }}</div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -48,6 +48,19 @@
   </div>
 
   <div class="card mt-24">
+    <div style="font-weight:600; margin-bottom:12px;">Appearance</div>
+    <button type="button" class="theme-toggle" id="profile-theme-toggle" data-toggle-url="{% url 'accounts:toggle_theme' %}" style="justify-content:flex-start;">
+      <span id="profile-theme-icon">{% if user.theme_preference == 'dark' %}☀️{% else %}🌙{% endif %}</span>
+      <span class="label">{% if user.theme_preference == 'dark' %}Switch to light mode{% else %}Switch to dark mode{% endif %}</span>
+    </button>
+  </div>
+
+  <div class="card mt-24">
+    <a href="{% url 'calls:history' %}" class="btn btn-ghost btn-block" style="justify-content:flex-start;">📜 Call history</a>
+    <a href="{% url 'friends:blocked' %}" class="btn btn-ghost btn-block mt-24" style="justify-content:flex-start;">🚫 Blocked users</a>
+  </div>
+
+  <div class="card mt-24">
     <div class="row-between" style="flex-wrap:wrap; gap:12px;">
       <div>
         <div style="font-weight:600;">Log out</div>
@@ -60,4 +73,26 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+(function () {
+  const btn = document.getElementById('profile-theme-toggle');
+  if (!btn) return;
+  const icon = document.getElementById('profile-theme-icon');
+  const label = btn.querySelector('.label');
+  const csrfToken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+  btn.addEventListener('click', async () => {
+    const wasDark = document.documentElement.dataset.theme === 'dark';
+    const nextTheme = wasDark ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nextTheme;
+    icon.textContent = nextTheme === 'dark' ? '☀️' : '🌙';
+    label.textContent = nextTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    try {
+      await fetch(btn.dataset.toggleUrl, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+    } catch (e) { /* already applied locally */ }
+  });
+})();
+</script>
 {% endblock %}

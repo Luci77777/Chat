@@ -2,7 +2,10 @@
 {% load avatar_tags %}
 {% block title %}Chats · Pingback{% endblock %}
 {% block body %}
-<div class="topbar"><h2>Chats</h2></div>
+<div class="topbar">
+  <h2>Chats</h2>
+  <a href="{% url 'calls:history' %}" class="btn btn-ghost btn-sm" title="Call history">📜</a>
+</div>
 <div class="content">
   <div class="card" id="inbox-card" data-inbox-url="{% url 'chat:inbox_data' %}" data-room-base="/chat/with/">
     {% if not conversations %}
@@ -14,9 +17,12 @@
       <div id="inbox-list">
         {% for c in conversations %}
           <a class="list-row" style="color:inherit;" href="{% url 'chat:room' c.friend.username %}" data-username="{{ c.friend.username }}">
-            {% avatar c.friend %}
+            <span class="avatar-wrap">
+              {% avatar c.friend %}
+              <span class="presence-dot {% if c.online %}online{% endif %}"></span>
+            </span>
             <div class="meta">
-              <div class="name">{{ c.friend.username }}</div>
+              <div class="name">{{ c.friend.username }}{% if c.muted %} 🔕{% endif %}</div>
               <div class="sub">
                 {% if c.last_msg %}
                   {% if c.last_msg.sender == user %}You: {% endif %}{{ c.last_msg.body }}
@@ -64,11 +70,15 @@
       const avatarTag = c.avatar_url
         ? `<img class="avatar" src="${c.avatar_url}" alt="${escapeHtml(c.username)}">`
         : `<div class="avatar" style="background:${c.avatar_color};">${escapeHtml(c.initial)}</div>`;
+      const muteTag = c.muted ? ' 🔕' : '';
       return `
         <a class="list-row" style="color:inherit;" href="/chat/with/${encodeURIComponent(c.username)}/" data-username="${escapeHtml(c.username)}">
-          ${avatarTag}
+          <span class="avatar-wrap">
+            ${avatarTag}
+            <span class="presence-dot ${c.online ? 'online' : ''}"></span>
+          </span>
           <div class="meta">
-            <div class="name">${escapeHtml(c.username)}</div>
+            <div class="name">${escapeHtml(c.username)}${muteTag}</div>
             <div class="sub">${preview}</div>
           </div>
           ${badge}
@@ -87,12 +97,10 @@
     } catch (e) { /* silent — next trigger will retry */ }
   }
 
-  // The sidebar's lightweight poll (notify.js) already tells us when the
-  // unread count changed, so we only do the heavier inbox fetch when
-  // there's actually something new to show — not on a fixed timer.
   window.addEventListener('pingback:summary', (e) => {
     if (e.detail.changed.unread_messages) refreshInbox();
   });
+  setInterval(refreshInbox, 30000);
 })();
 </script>
 {% endblock %}

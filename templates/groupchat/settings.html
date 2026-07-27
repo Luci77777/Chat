@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load avatar_tags %}
+{% block title %}{{ group.name }} settings · Pingback{% endblock %}
+{% block body %}
+<div class="topbar">
+  <h2>Group info</h2>
+  <a href="{% url 'groupchat:room' group.pk %}" class="btn btn-ghost btn-sm">Back to chat</a>
+</div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="settings-photo-row">
+      {% avatar group 'lg' %}
+      <div>
+        <div style="font-weight:700; font-size:1.05rem;">{{ group.name }}</div>
+        <div class="text-muted" style="font-size:0.85rem;">{{ member_list|length }} member{{ member_list|length|pluralize }}</div>
+      </div>
+    </div>
+
+    {% if membership.is_admin %}
+      {% if not cloudinary_configured %}
+        <p class="text-muted" style="font-size:0.82rem; margin-bottom:12px;">
+          Photo uploads aren't set up on this server yet (no Cloudinary credentials configured).
+        </p>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="save_settings" value="1">
+        <div class="form-row">
+          <label for="{{ form.name.id_for_label }}">Group name</label>
+          {{ form.name }}
+          {% if form.name.errors %}<p class="field-error">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
+        {% if cloudinary_configured %}
+          <div class="form-row">
+            <label for="{{ form.photo.id_for_label }}">Group photo</label>
+            {{ form.photo }}
+            {% if form.photo.errors %}<p class="field-error">{{ form.photo.errors.0 }}</p>{% endif %}
+          </div>
+        {% endif %}
+        <button class="btn btn-primary" type="submit">Save changes</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card mt-24">
+    <div style="font-weight:600; margin-bottom:8px;">Members</div>
+    {% for m in member_list %}
+      <div class="member-row">
+        {% avatar m.user 'sm' %}
+        <div class="meta">
+          <div class="name">{{ m.user.username }}{% if m.user == user %} (you){% endif %}</div>
+          {% if m.is_admin %}<div class="admin-tag">Admin</div>{% endif %}
+        </div>
+        {% if membership.is_admin and m.user != user %}
+          <div class="row-actions">
+            <form method="post" action="{% url 'groupchat:set_admin' group.pk m.user.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="make_admin" value="{% if m.is_admin %}0{% else %}1{% endif %}">
+              <button type="submit" class="btn btn-ghost btn-sm">{% if m.is_admin %}Remove admin{% else %}Make admin{% endif %}</button>
+            </form>
+            <form method="post" action="{% url 'groupchat:remove_member' group.pk m.user.pk %}" onsubmit="return confirm('Remove {{ m.user.username }} from the group?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card mt-24">
+    <form method="post" action="{% url 'groupchat:leave' group.pk %}" onsubmit="return confirm('Leave {{ group.name }}?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-block">Leave group</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

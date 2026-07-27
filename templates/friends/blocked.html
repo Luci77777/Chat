@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load avatar_tags %}
+{% block title %}Blocked users · Pingback{% endblock %}
+{% block body %}
+<div class="topbar">
+  <h2>Blocked users</h2>
+  <a href="{% url 'accounts:profile' %}" class="btn btn-ghost btn-sm">Back to profile</a>
+</div>
+<div class="content">
+  {% if messages %}
+    <div class="messages-fw">
+      {% for m in messages %}<div class="flash {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  <div class="card">
+    {% if not blocked %}
+      <div class="empty-state">
+        <h3>No blocked users</h3>
+        <p>People you block will show up here, and you can unblock them anytime.</p>
+      </div>
+    {% else %}
+      {% for b in blocked %}
+        <div class="list-row">
+          {% avatar b.blocked 'sm' %}
+          <div class="meta"><div class="name">{{ b.blocked.username }}</div></div>
+          <div class="row-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'friends:unblock_user' b.blocked.username %}">Unblock</a>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

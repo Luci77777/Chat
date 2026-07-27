@@ -41,7 +41,10 @@ class GroupMembership(models.Model):
     # per message per member), unread counts are computed as "messages in
     # this group created after last_read_at, not sent by me" — one indexed
     # query per group, same trick used for 1:1 unread counts elsewhere.
+    # It also doubles as the basis for the group's approximate "seen by N"
+    # indicator (see chat_group_msg_seen_by in groupchat/views.py).
     last_read_at = models.DateTimeField(null=True, blank=True)
+    is_muted = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
@@ -56,11 +59,15 @@ class GroupMessage(models.Model):
     KIND_TEXT = 'text'
     KIND_GIF = 'gif'
     KIND_STICKER = 'sticker'
+    KIND_VOICE = 'voice'
+    KIND_FILE = 'file'
     KIND_SYSTEM = 'system'  # "Alice added Bob" style notices
     KIND_CHOICES = [
         (KIND_TEXT, 'Text'),
         (KIND_GIF, 'GIF'),
         (KIND_STICKER, 'Sticker'),
+        (KIND_VOICE, 'Voice message'),
+        (KIND_FILE, 'File'),
         (KIND_SYSTEM, 'System'),
     ]
 
@@ -73,7 +80,18 @@ class GroupMessage(models.Model):
     body = models.CharField(max_length=2000, blank=True)
     kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_TEXT)
     media_url = models.URLField(blank=True)
+    media_public_id = models.CharField(max_length=255, blank=True)
+    file_name = models.CharField(max_length=255, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+
+    reply_to = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['created_at']
@@ -82,12 +100,44 @@ class GroupMessage(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(body__gt='') | ~models.Q(media_url=''),
+                check=models.Q(deleted_at__isnull=False) | models.Q(body__gt='') | ~models.Q(media_url=''),
                 name='groupchat_msg_has_content',
             ),
         ]
 
     def __str__(self):
+        if self.deleted_at:
+            who = self.sender or 'system'
+            return f'{who} @ {self.group}: [deleted]'
         preview = self.body[:30] if self.body else f'[{self.kind}]'
         who = self.sender or 'system'
         return f'{who} @ {self.group}: {preview}'
+
+
+class GroupMessageReaction(models.Model):
+    message = models.ForeignKey(GroupMessage, related_name='reactions', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    emoji = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['message', 'user'], name='unique_group_message_reaction')
+        ]
+
+    def __str__(self):
+        return f'{self.user} reacted {self.emoji} to group message#{self.message_id}'
+
+
+class GroupTypingStatus(models.Model):
+    group = models.ForeignKey(ChatGroup, related_name='+', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['group', 'user'], name='unique_group_typing_status')
+        ]
+
+    def __str__(self):
+        return f'{self.user} typing in {self.group} @ {self.updated_at}'
