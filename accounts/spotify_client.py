@@ -46,15 +46,24 @@ class SpotifyError(Exception):
 
 def get_redirect_uri(request=None):
     """
-    Returns the configured SPOTIFY_REDIRECT_URI if set in settings,
-    or dynamically constructs it from request if available.
+    Returns the redirect URI for Spotify OAuth.
+    If a request is provided, automatically uses request.build_absolute_uri()
+    whenever the configured SPOTIFY_REDIRECT_URI does not match the current request host
+    (e.g., when testing locally on 127.0.0.1 while .env contains the Render URL).
     """
-    uri = getattr(settings, 'SPOTIFY_REDIRECT_URI', '').strip()
-    if uri:
-        return uri
     if request:
-        return request.build_absolute_uri(reverse('accounts:spotify_callback'))
-    return ''
+        dynamic_uri = request.build_absolute_uri(reverse('accounts:spotify_callback'))
+        configured_uri = getattr(settings, 'SPOTIFY_REDIRECT_URI', '').strip()
+        if not configured_uri:
+            return dynamic_uri
+
+        parsed_configured = urllib.parse.urlparse(configured_uri)
+        if parsed_configured.netloc and parsed_configured.netloc != request.get_host():
+            return dynamic_uri
+
+        return configured_uri
+
+    return getattr(settings, 'SPOTIFY_REDIRECT_URI', '').strip()
 
 
 def is_configured():

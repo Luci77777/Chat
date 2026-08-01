@@ -79,6 +79,7 @@ def toggle_theme(request):
 
 @login_required
 def spotify_connect(request):
+    print('jsgj')
     if not spotify_client.is_configured():
         messages.error(request, 'Spotify is not configured on this server.')
         return redirect('accounts:profile')
@@ -87,11 +88,14 @@ def spotify_connect(request):
     return redirect(spotify_client.build_authorize_url(state, request=request))
 
 
-@login_required
 def spotify_callback(request):
     if not spotify_client.is_configured():
         messages.error(request, 'Spotify is not configured on this server.')
         return redirect('accounts:profile')
+
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please log in to finish connecting your Spotify account.')
+        return redirect('accounts:login')
 
     error = request.GET.get('error')
     if error:
@@ -100,7 +104,7 @@ def spotify_callback(request):
 
     expected_state = request.session.pop('spotify_oauth_state', None)
     state = request.GET.get('state')
-    if not expected_state or state != expected_state:
+    if expected_state and state != expected_state:
         messages.error(request, "Couldn't verify that Spotify request — please try connecting again.")
         return redirect('accounts:profile')
 
