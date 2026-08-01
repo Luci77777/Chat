@@ -8,14 +8,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>{% block title %}Pingback{% endblock %}</title>
+  <title>{% block title %}Kuchu Puchu{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
 {% if user.is_authenticated %}
 <div class="app-shell">
   <aside class="sidebar" data-notify-url="{% url 'chat:notify_summary' %}">
-    <div class="brand"><span class="dot"></span><span>Pingback</span></div>
+    <div class="brand"><span class="dot"></span><span>Kuchu Puchu</span></div>
     <a class="nav-link {% if request.resolver_match.view_name == 'chat:inbox' %}active{% endif %}" href="{% url 'chat:inbox' %}">
       <span class="label-row"><span class="icon" aria-hidden="true">💬</span><span class="label">Chats</span></span>
       <span class="badge" id="chats-badge" style="{% if not unread_messages_count %}display:none;{% endif %}">{{ unread_messages_count }}</span>
