@@ -56,6 +56,45 @@
   </div>
 
   <div class="card mt-24">
+    <div class="row-between" style="flex-wrap:wrap; gap:12px; margin-bottom:{% if user.spotify_connected %}12{% else %}0{% endif %}px;">
+      <div>
+        <div style="font-weight:600;">🎧 Spotify</div>
+        <div class="text-muted" style="font-size:0.85rem;">
+          {% if not spotify_configured %}
+            Not set up on this server yet.
+          {% elif user.spotify_connected %}
+            Connected — friends can see what you're playing.
+          {% else %}
+            Show what you're listening to next to your name.
+          {% endif %}
+        </div>
+      </div>
+      {% if spotify_configured %}
+        {% if user.spotify_connected %}
+          <form method="post" action="{% url 'accounts:spotify_disconnect' %}">
+            {% csrf_token %}
+            <button class="btn btn-danger btn-sm" type="submit">Disconnect</button>
+          </form>
+        {% else %}
+          <a class="btn btn-primary btn-sm" href="{% url 'accounts:spotify_connect' %}">Connect Spotify</a>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if user.spotify_connected and now_playing %}
+      <div class="now-playing-chip">
+        {% if now_playing.album_image_url %}<img src="{{ now_playing.album_image_url }}" alt="">{% endif %}
+        <div class="np-meta">
+          <div class="np-track">{{ now_playing.track_name }}</div>
+          <div class="np-artist">{{ now_playing.artist_name }}</div>
+        </div>
+        <span class="np-bars"><span></span><span></span><span></span></span>
+      </div>
+    {% elif user.spotify_connected %}
+      <p class="text-muted" style="font-size:0.82rem; margin:0;">Nothing playing right now.</p>
+    {% endif %}
+  </div>
+
+  <div class="card mt-24">
     <a href="{% url 'calls:history' %}" class="btn btn-ghost btn-block" style="justify-content:flex-start;">📜 Call history</a>
     <a href="{% url 'friends:blocked' %}" class="btn btn-ghost btn-block mt-24" style="justify-content:flex-start;">🚫 Blocked users</a>
   </div>

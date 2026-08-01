@@ -911,6 +911,123 @@ a.list-row:hover{background:var(--bg);}
 .call-history-row .ch-status.missed{color:var(--coral-dark);}
 .call-history-row .ch-time{font-size:0.75rem; color:var(--muted); font-family:'IBM Plex Mono', monospace; flex-shrink:0;}
 
+/* ---------- Now playing (Spotify) ---------- */
+.now-playing-chip{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:var(--bg);
+  border:1px solid var(--border);
+}
+.now-playing-chip img{width:36px; height:36px; border-radius:8px; object-fit:cover; flex-shrink:0;}
+.now-playing-chip .np-meta{flex:1; min-width:0;}
+.now-playing-chip .np-track{font-weight:600; font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.now-playing-chip .np-artist{font-size:0.76rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.np-bars{display:inline-flex; align-items:flex-end; gap:2px; height:14px; flex-shrink:0;}
+.np-bars span{width:3px; background:var(--mint); border-radius:2px; animation:np-bounce 0.9s ease-in-out infinite;}
+.np-bars span:nth-child(1){height:6px; animation-delay:0s;}
+.np-bars span:nth-child(2){height:14px; animation-delay:0.2s;}
+.np-bars span:nth-child(3){height:9px; animation-delay:0.4s;}
+@keyframes np-bounce{0%,100%{transform:scaleY(0.4);} 50%{transform:scaleY(1);}}
+
+.presence-np{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:0.74rem; color:var(--mint); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
+}
+.presence-np .np-bars{height:10px;}
+.presence-np .np-bars span:nth-child(1){height:4px;}
+.presence-np .np-bars span:nth-child(2){height:10px;}
+.presence-np .np-bars span:nth-child(3){height:6px;}
+
+/* ---------- Per-conversation theme presets ----------
+   Applied via data-theme-preset on .chat-room; only touches the "mine"
+   bubble gradient and a faint ambient wash, so text/contrast elsewhere is
+   never at risk. Custom wallpapers (set inline via style="background-image")
+   take over the .chat-messages background entirely when present. */
+.chat-messages{background-size:cover; background-position:center; background-repeat:no-repeat;}
+
+.chat-room[data-theme-preset="sunset"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #FF9A56, #FF6B57); box-shadow:0 2px 8px rgba(255,107,87,0.3);}
+.chat-room[data-theme-preset="sunset"] .chat-messages{background-image:linear-gradient(180deg, rgba(255,154,86,0.06), transparent 200px);}
+
+.chat-room[data-theme-preset="ocean"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #4FACFE, #2B6CB0); box-shadow:0 2px 8px rgba(43,108,176,0.3);}
+.chat-room[data-theme-preset="ocean"] .chat-messages{background-image:linear-gradient(180deg, rgba(79,172,254,0.07), transparent 200px);}
+
+.chat-room[data-theme-preset="forest"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #4FD1A5, #2F8F6E); box-shadow:0 2px 8px rgba(47,143,110,0.3);}
+.chat-room[data-theme-preset="forest"] .chat-messages{background-image:linear-gradient(180deg, rgba(79,209,165,0.07), transparent 200px);}
+
+.chat-room[data-theme-preset="berry"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #E85D9E, #A63377); box-shadow:0 2px 8px rgba(166,51,119,0.3);}
+.chat-room[data-theme-preset="berry"] .chat-messages{background-image:linear-gradient(180deg, rgba(232,93,158,0.07), transparent 200px);}
+
+.chat-room[data-theme-preset="midnight"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #4A4A7D, #24243F); box-shadow:0 2px 8px rgba(36,36,63,0.35);}
+.chat-room[data-theme-preset="midnight"] .chat-messages{background-image:linear-gradient(180deg, rgba(36,36,63,0.08), transparent 200px);}
+
+.chat-room[data-theme-preset="gold"] .bubble-row.mine .bubble{background:linear-gradient(135deg, #F5C463, #D9A441); color:#3A2A08; box-shadow:0 2px 8px rgba(217,164,65,0.3);}
+.chat-room[data-theme-preset="gold"] .bubble-row.mine .bubble .receipt{color:#3A2A08; opacity:0.6;}
+.chat-room[data-theme-preset="gold"] .chat-messages{background-image:linear-gradient(180deg, rgba(245,196,99,0.10), transparent 200px);}
+
+/* ---------- Theme preset picker (chat settings page) ---------- */
+.preset-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(64px, 1fr)); gap:10px; margin-bottom:16px;}
+.preset-swatch{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  cursor:pointer; border:none; background:none; padding:0; font-family:inherit;
+}
+.preset-swatch .swatch-circle{
+  width:44px; height:44px; border-radius:50%;
+  border:3px solid transparent;
+  transition:border-color .15s ease, transform .12s ease;
+}
+.preset-swatch.active .swatch-circle{border-color:var(--ink);}
+.preset-swatch:hover .swatch-circle{transform:scale(1.08);}
+.preset-swatch .swatch-label{font-size:0.72rem; color:var(--muted);}
+.swatch-default{background:var(--gradient-primary);}
+.swatch-sunset{background:linear-gradient(135deg, #FF9A56, #FF6B57);}
+.swatch-ocean{background:linear-gradient(135deg, #4FACFE, #2B6CB0);}
+.swatch-forest{background:linear-gradient(135deg, #4FD1A5, #2F8F6E);}
+.swatch-berry{background:linear-gradient(135deg, #E85D9E, #A63377);}
+.swatch-midnight{background:linear-gradient(135deg, #4A4A7D, #24243F);}
+.swatch-gold{background:linear-gradient(135deg, #F5C463, #D9A441);}
+
+.wallpaper-preview{width:100%; max-width:220px; height:120px; border-radius:12px; object-fit:cover; border:1px solid var(--border); margin-bottom:10px; display:block;}
+
+/* ---------- Message effects picker ---------- */
+.effect-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:8px;}
+.effect-option{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:12px 6px; border-radius:12px; border:1px solid var(--border); background:var(--surface);
+  cursor:pointer; font-family:inherit; font-size:0.74rem; color:var(--ink);
+  transition:background .15s ease, transform .12s ease;
+}
+.effect-option:hover{background:var(--bg); transform:translateY(-1px);}
+.effect-option .effect-emoji{font-size:1.5rem;}
+
+/* ---------- Full-screen message-effect overlay (see static/js/effects.js) ---------- */
+#effects-canvas{position:fixed; inset:0; z-index:1300; pointer-events:none;}
+
+@keyframes effect-slam{
+  0%{transform:scale(2.2); opacity:0;}
+  60%{transform:scale(0.94); opacity:1;}
+  80%{transform:scale(1.04);}
+  100%{transform:scale(1);}
+}
+@keyframes effect-shake{
+  0%, 100%{transform:translateX(0);}
+  20%{transform:translateX(-6px);}
+  40%{transform:translateX(5px);}
+  60%{transform:translateX(-4px);}
+  80%{transform:translateX(3px);}
+}
+.bubble-row.fx-slam .bubble{animation:effect-slam .45s cubic-bezier(.2,.9,.3,1.1), effect-shake .35s ease .45s;}
+
+@keyframes effect-loud{
+  0%{transform:scale(0.7);}
+  30%{transform:scale(1.18);}
+  50%{transform:scale(0.96);}
+  70%{transform:scale(1.06);}
+  100%{transform:scale(1);}
+}
+.bubble-row.fx-loud .bubble{animation:effect-loud .6s ease, effect-shake .5s ease;}
+
 /* =========================================================
    Responsive breakpoints
    ========================================================= */

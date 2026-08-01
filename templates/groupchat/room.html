@@ -70,6 +70,19 @@
     <button type="button" class="icon-btn" id="attach-toggle" title="Attach file" aria-label="Attach file">📎</button>
     <input type="file" id="file-input" style="display:none;">
     <button type="button" class="icon-btn" id="mic-toggle" title="Record voice message" aria-label="Record voice message">🎤</button>
+    <button type="button" class="icon-btn" id="effects-toggle" title="Send with effect" aria-label="Send with effect">✨</button>
+
+    <div class="picker-panel hidden" id="effects-panel">
+      <div class="picker-body">
+        <div class="effect-grid">
+          <button type="button" class="effect-option" data-effect="confetti"><span class="effect-emoji">🎉</span>Confetti</button>
+          <button type="button" class="effect-option" data-effect="balloons"><span class="effect-emoji">🎈</span>Balloons</button>
+          <button type="button" class="effect-option" data-effect="fireworks"><span class="effect-emoji">🎆</span>Fireworks</button>
+          <button type="button" class="effect-option" data-effect="slam"><span class="effect-emoji">💥</span>Slam</button>
+          <button type="button" class="effect-option" data-effect="loud"><span class="effect-emoji">📢</span>Loud</button>
+        </div>
+      </div>
+    </div>
 
     <div class="picker-panel hidden" id="emoji-panel">
       <div class="picker-tabs" id="emoji-tabs"></div>
@@ -105,6 +118,7 @@
 <div id="group-call-overlay-root"></div>
 
 <script src="{% static 'js/emoji-data.js' %}"></script>
+<script src="{% static 'js/effects.js' %}"></script>
 <script src="{% static 'js/group-calls.js' %}"></script>
 <script src="{% static 'js/group-room.js' %}"></script>
 {% endblock %}

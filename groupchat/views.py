@@ -17,6 +17,7 @@ from .models import ChatGroup, GroupMembership, GroupMessage, GroupMessageReacti
 
 ALLOWED_GIF_HOST_SUFFIX = '.klipy.com'
 ALLOWED_CHAT_MEDIA_HOST_SUFFIX = '.cloudinary.com'
+ALLOWED_EFFECTS = {'confetti', 'balloons', 'fireworks', 'slam', 'loud'}
 TYPING_FRESH_SECONDS = 6
 MAX_VOICE_SECONDS = 300
 
@@ -177,6 +178,7 @@ def _serialize_message(m, request_user, group=None):
         'file_name': m.file_name,
         'file_size': m.file_size,
         'duration_seconds': m.duration_seconds,
+        'effect': '' if m.deleted_at else m.effect,
         'mine': m.sender_id == request_user.pk,
         'sender_username': m.sender.username if m.sender else None,
         'sender_avatar_color': m.sender.avatar_color if m.sender else None,
@@ -258,6 +260,10 @@ def group_send(request, group_id):
     if kind not in (GroupMessage.KIND_GIF, GroupMessage.KIND_STICKER, GroupMessage.KIND_VOICE, GroupMessage.KIND_FILE):
         kind = GroupMessage.KIND_TEXT
 
+    effect = request.POST.get('effect', '') if kind == GroupMessage.KIND_TEXT else ''
+    if effect not in ALLOWED_EFFECTS:
+        effect = ''
+
     reply_to = None
     reply_to_id = request.POST.get('reply_to')
     if reply_to_id:
@@ -295,6 +301,7 @@ def group_send(request, group_id):
     msg = GroupMessage.objects.create(
         group=group, sender=request.user, body=body, kind=kind, media_url=media_url,
         file_name=file_name, file_size=file_size, duration_seconds=duration_seconds, reply_to=reply_to,
+        effect=effect,
     )
     membership.last_read_at = timezone.now()
     membership.save(update_fields=['last_read_at'])

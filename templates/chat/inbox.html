@@ -22,7 +22,7 @@
               <span class="presence-dot {% if c.online %}online{% endif %}"></span>
             </span>
             <div class="meta">
-              <div class="name">{{ c.friend.username }}{% if c.muted %} 🔕{% endif %}</div>
+              <div class="name">{{ c.display_name }}{% if c.muted %} 🔕{% endif %}</div>
               <div class="sub">
                 {% if c.last_msg %}
                   {% if c.last_msg.sender == user %}You: {% endif %}{{ c.last_msg.body }}
@@ -78,7 +78,7 @@
             <span class="presence-dot ${c.online ? 'online' : ''}"></span>
           </span>
           <div class="meta">
-            <div class="name">${escapeHtml(c.username)}${muteTag}</div>
+            <div class="name">${escapeHtml(c.display_name)}${muteTag}</div>
             <div class="sub">${preview}</div>
           </div>
           ${badge}

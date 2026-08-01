@@ -167,12 +167,16 @@
     return row;
   }
 
-  function appendMessage(m) {
+  function appendMessage(m, live) {
     if (document.querySelector(`[data-id="${m.id}"]`)) return;
     const loading = document.getElementById('messages-loading');
     if (loading) loading.remove();
-    messagesEl.appendChild(buildBubbleRow(m));
+    const row = buildBubbleRow(m);
+    messagesEl.appendChild(row);
     lastId = Math.max(lastId, m.id);
+    if (live && m.effect && window.PingbackEffects && row.classList && row.classList.contains('bubble-row')) {
+      window.PingbackEffects.play(m.effect, row);
+    }
   }
 
   function updateReactionsInDom(id, reactions) {
@@ -238,7 +242,7 @@
 
       if (data.messages && data.messages.length) {
         const wasAtBottom = isInitial || isNearBottom();
-        data.messages.forEach(appendMessage);
+        data.messages.forEach((m) => appendMessage(m, !isInitial));
         if (wasAtBottom) scrollToBottom();
       }
 
@@ -291,10 +295,42 @@
       const fields = { body, kind: 'text' };
       if (replyToId) fields.reply_to = replyToId;
       const { ok, data } = await postForm(sendUrl, fields);
-      if (ok && data) { appendMessage(data); scrollToBottom(); }
+      if (ok && data) { appendMessage(data, true); scrollToBottom(); }
       clearReply();
     } finally {
       input.disabled = false;
+      input.focus();
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // message effects (confetti/balloons/fireworks/slam/loud)
+  // ---------------------------------------------------------------
+  const effectsToggle = document.getElementById('effects-toggle');
+  const effectsPanel = document.getElementById('effects-panel');
+
+  effectsToggle.addEventListener('click', () => {
+    const willOpen = effectsPanel.classList.contains('hidden');
+    closePanels(willOpen ? effectsPanel : null);
+    effectsPanel.classList.toggle('hidden', !willOpen);
+    effectsToggle.classList.toggle('active', willOpen);
+  });
+
+  effectsPanel.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-effect]');
+    if (!btn) return;
+    const body = input.value.trim();
+    if (!body) { input.focus(); return; }
+    effectsPanel.classList.add('hidden');
+    effectsToggle.classList.remove('active');
+    input.value = '';
+    try {
+      const fields = { body, kind: 'text', effect: btn.dataset.effect };
+      if (replyToId) fields.reply_to = replyToId;
+      const { ok, data } = await postForm(sendUrl, fields);
+      if (ok && data) { appendMessage(data, true); scrollToBottom(); }
+      clearReply();
+    } finally {
       input.focus();
     }
   });
@@ -590,6 +626,7 @@
   function closePanels(except) {
     if (except !== emojiPanel) { emojiPanel.classList.add('hidden'); emojiToggle.classList.remove('active'); }
     if (except !== gifPanel) { gifPanel.classList.add('hidden'); gifToggle.classList.remove('active'); }
+    if (except !== effectsPanel) { effectsPanel.classList.add('hidden'); effectsToggle.classList.remove('active'); }
   }
 
   function renderEmojiCategory(name) {

@@ -3,7 +3,7 @@
 {% load avatar_tags %}
 {% block title %}{{ friend.username }} · Pingback{% endblock %}
 {% block body %}
-<div class="chat-room" data-username="{{ friend.username }}"
+<div class="chat-room" data-username="{{ friend.username }}" data-theme-preset="{{ theme.preset }}"
      data-poll-url="{% url 'chat:poll' friend.username %}"
      data-send-url="{% url 'chat:send' friend.username %}"
      data-typing-url="{% url 'chat:typing' friend.username %}"
@@ -22,14 +22,22 @@
       <span class="presence-dot {% if friend_online %}online{% endif %}" id="friend-presence-dot"></span>
     </span>
     <div class="who">
-      <div class="fname">{{ friend.username }}</div>
-      <div class="fsub {% if friend_online %}online-text{% endif %}" id="friend-status-text">
-        {% if friend_online %}Online{% elif friend.bio %}{{ friend.bio }}{% endif %}
+      <div class="fname">{{ display_name }}</div>
+      <div class="fsub {% if friend_online %}online-text{% endif %}" id="friend-status-text"
+           data-fallback="{% if friend_online %}Online{% elif friend.bio %}{{ friend.bio }}{% endif %}">
+        {% if friend_now_playing %}
+          <span class="presence-np"><span class="np-bars"><span></span><span></span><span></span></span>🎧 {{ friend_now_playing.track_name }} — {{ friend_now_playing.artist_name }}</span>
+        {% elif friend_online %}
+          Online
+        {% elif friend.bio %}
+          {{ friend.bio }}
+        {% endif %}
       </div>
     </div>
     <div class="header-actions">
       <button type="button" class="icon-btn" id="search-toggle" title="Search" aria-label="Search messages">🔍</button>
       <button type="button" class="icon-btn" id="mute-toggle" title="Mute" aria-label="Mute conversation">{% if is_muted %}🔕{% else %}🔔{% endif %}</button>
+      <a href="{% url 'chat:settings' friend.username %}" class="icon-btn" title="Chat settings" aria-label="Chat settings">🎨</a>
       <button type="button" class="icon-btn" id="call-audio-btn" title="Voice call" aria-label="Voice call">📞</button>
       <button type="button" class="icon-btn" id="call-video-btn" title="Video call" aria-label="Video call">🎥</button>
       <a href="{% url 'friends:block_user' friend.username %}" class="icon-btn" id="block-btn" title="Block {{ friend.username }}" aria-label="Block user"
@@ -42,7 +50,7 @@
     <div class="search-results hidden" id="search-results"></div>
   </div>
 
-  <div class="chat-messages" id="chat-messages">
+  <div class="chat-messages" id="chat-messages"{% if theme.wallpaper_url %} style="background-image:url('{{ theme.wallpaper_url }}');"{% endif %}>
     <div class="empty-state" id="messages-loading"><p>Loading messages…</p></div>
   </div>
 
@@ -72,6 +80,19 @@
     <button type="button" class="icon-btn" id="attach-toggle" title="Attach file" aria-label="Attach file">📎</button>
     <input type="file" id="file-input" style="display:none;">
     <button type="button" class="icon-btn" id="mic-toggle" title="Record voice message" aria-label="Record voice message">🎤</button>
+    <button type="button" class="icon-btn" id="effects-toggle" title="Send with effect" aria-label="Send with effect">✨</button>
+
+    <div class="picker-panel hidden" id="effects-panel">
+      <div class="picker-body">
+        <div class="effect-grid">
+          <button type="button" class="effect-option" data-effect="confetti"><span class="effect-emoji">🎉</span>Confetti</button>
+          <button type="button" class="effect-option" data-effect="balloons"><span class="effect-emoji">🎈</span>Balloons</button>
+          <button type="button" class="effect-option" data-effect="fireworks"><span class="effect-emoji">🎆</span>Fireworks</button>
+          <button type="button" class="effect-option" data-effect="slam"><span class="effect-emoji">💥</span>Slam</button>
+          <button type="button" class="effect-option" data-effect="loud"><span class="effect-emoji">📢</span>Loud</button>
+        </div>
+      </div>
+    </div>
 
     <div class="picker-panel hidden" id="emoji-panel">
       <div class="picker-tabs" id="emoji-tabs"></div>
@@ -98,5 +119,6 @@
 </div>
 
 <script src="{% static 'js/emoji-data.js' %}"></script>
+<script src="{% static 'js/effects.js' %}"></script>
 <script src="{% static 'js/chat-room.js' %}"></script>
 {% endblock %}

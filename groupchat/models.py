@@ -84,6 +84,10 @@ class GroupMessage(models.Model):
     file_name = models.CharField(max_length=255, blank=True)
     file_size = models.PositiveIntegerField(null=True, blank=True)
     duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    effect = models.CharField(max_length=12, blank=True, choices=[
+        ('', 'None'), ('confetti', 'Confetti'), ('balloons', 'Balloons'),
+        ('fireworks', 'Fireworks'), ('slam', 'Slam'), ('loud', 'Loud'),
+    ])
 
     reply_to = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies'
