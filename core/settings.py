@@ -146,6 +146,15 @@ if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
         secure=True,
     )
 
+# Spotify "now playing" (see accounts/spotify_client.py) — register a free
+# app at https://developer.spotify.com/dashboard and add the exact same
+# redirect URI there as SPOTIFY_REDIRECT_URI below (Spotify rejects any
+# mismatch, even trailing-slash differences). Without these set, the
+# "Connect Spotify" option on the profile page just doesn't appear.
+SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', '')
+SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', '')
+SPOTIFY_REDIRECT_URI = os.environ.get('SPOTIFY_REDIRECT_URI', '')
+
 # Free TURN relay for voice/video calls, via Metered / Open Relay
 # (see README "Voice & video calls"). Optional — without it, calls still
 # work over plain STUN for most network setups, just not the toughest ones.

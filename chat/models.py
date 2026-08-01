@@ -1,6 +1,18 @@
 from django.conf import settings
 from django.db import models
 
+# Shared with groupchat/models.py's GroupMessage — kept as a plain list
+# rather than a shared import to avoid coupling the two apps together for
+# what's just a handful of string constants.
+EFFECT_CHOICES = [
+    ('', 'None'),
+    ('confetti', 'Confetti'),
+    ('balloons', 'Balloons'),
+    ('fireworks', 'Fireworks'),
+    ('slam', 'Slam'),
+    ('loud', 'Loud'),
+]
+
 
 class Message(models.Model):
     KIND_TEXT = 'text'
@@ -28,6 +40,10 @@ class Message(models.Model):
     file_name = models.CharField(max_length=255, blank=True)  # original filename, for KIND_FILE
     file_size = models.PositiveIntegerField(null=True, blank=True)  # bytes, for KIND_FILE
     duration_seconds = models.PositiveIntegerField(null=True, blank=True)  # for KIND_VOICE
+    # Full-screen effect (confetti/balloons/...) played client-side the
+    # moment this message is delivered live — see static/js/effects.js.
+    # Only applies to text messages; blank = no effect.
+    effect = models.CharField(max_length=12, blank=True, choices=EFFECT_CHOICES)
 
     reply_to = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies'
@@ -98,3 +114,66 @@ class TypingStatus(models.Model):
 
     def __str__(self):
         return f'{self.user} typing to {self.friend} @ {self.updated_at}'
+
+
+# ---------------------------------------------------------------------------
+# Per-conversation personalization: a shared theme for the pair (whoever
+# sets it, both people see it), plus a private nickname (only the person who
+# set it sees it — like WhatsApp/Discord contact nicknames, not a display
+# name either party can force on the other).
+# ---------------------------------------------------------------------------
+
+THEME_PRESET_CHOICES = [
+    ('default', 'Default'),
+    ('sunset', 'Sunset'),
+    ('ocean', 'Ocean'),
+    ('forest', 'Forest'),
+    ('berry', 'Berry'),
+    ('midnight', 'Midnight'),
+    ('gold', 'Gold'),
+]
+
+
+class ChatTheme(models.Model):
+    """
+    One row per friend pair, keyed the same "lower pk first" way
+    friends.Friendship keys user_a/user_b, so there's exactly one shared
+    theme for a conversation no matter who opens the settings page.
+    """
+    user_a = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    user_b = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    preset = models.CharField(max_length=20, choices=THEME_PRESET_CHOICES, default='default')
+    # Optional custom wallpaper photo, uploaded via Cloudinary — takes over
+    # the chat background regardless of preset when set.
+    wallpaper_url = models.URLField(blank=True)
+    wallpaper_public_id = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user_a', 'user_b'], name='unique_chat_theme_pair')
+        ]
+
+    @staticmethod
+    def for_pair(user1, user2):
+        a, b = sorted([user1, user2], key=lambda u: u.pk)
+        obj, _ = ChatTheme.objects.get_or_create(user_a=a, user_b=b)
+        return obj
+
+    def __str__(self):
+        return f'theme({self.user_a}, {self.user_b}) = {self.preset}'
+
+
+class ContactNickname(models.Model):
+    """owner's private label for friend — never visible to friend."""
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    friend = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='+', on_delete=models.CASCADE)
+    nickname = models.CharField(max_length=40, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'friend'], name='unique_contact_nickname')
+        ]
+
+    def __str__(self):
+        return f'{self.owner} calls {self.friend} "{self.nickname}"'

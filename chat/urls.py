@@ -14,6 +14,7 @@ urlpatterns = [
     path('with/<str:username>/typing/', views.typing, name='typing'),
     path('with/<str:username>/search/', views.search_messages, name='search'),
     path('with/<str:username>/mute/', views.toggle_mute, name='toggle_mute'),
+    path('with/<str:username>/settings/', views.chat_settings, name='settings'),
     path('with/<str:username>/upload-voice/', views.upload_voice, name='upload_voice'),
     path('with/<str:username>/upload-file/', views.upload_file, name='upload_file'),
     path('message/<int:message_id>/edit/', views.edit_message, name='edit_message'),

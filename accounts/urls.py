@@ -10,4 +10,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('profile/', views.profile, name='profile'),
     path('theme/', views.toggle_theme, name='toggle_theme'),
+    path('spotify/connect/', views.spotify_connect, name='spotify_connect'),
+    path('spotify/callback/', views.spotify_callback, name='spotify_callback'),
+    path('spotify/disconnect/', views.spotify_disconnect, name='spotify_disconnect'),
 ]

@@ -1,23 +1,25 @@
 from urllib.parse import urlparse
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from accounts import cloudinary_client
+from accounts import cloudinary_client, spotify_client
 from accounts.middleware import ONLINE_WINDOW_SECONDS
 from friends.models import ConversationMute, Friendship
 from . import klipy
-from .models import Message, MessageReaction, TypingStatus
+from .models import ChatTheme, ContactNickname, EFFECT_CHOICES, Message, MessageReaction, TypingStatus
 
 User = get_user_model()
 
 ALLOWED_GIF_HOST_SUFFIX = '.klipy.com'
 ALLOWED_CHAT_MEDIA_HOST_SUFFIX = '.cloudinary.com'
+ALLOWED_EFFECTS = {key for key, _label in EFFECT_CHOICES if key}
 
 TYPING_FRESH_SECONDS = 6
 MAX_VOICE_SECONDS = 300
@@ -78,11 +80,16 @@ def inbox(request):
     friends = Friendship.friends_of(request.user)
     summaries = _conversation_summaries(request.user, friends)
     muted_ids = set(ConversationMute.objects.filter(user=request.user).values_list('friend_id', flat=True))
+    nickname_map = dict(
+        ContactNickname.objects.filter(owner=request.user, friend__in=friends).exclude(nickname='')
+        .values_list('friend_id', 'nickname')
+    )
     now = timezone.now()
 
     conversations = [
         {
             'friend': friend,
+            'display_name': nickname_map.get(friend.pk, friend.username),
             'last_msg': summaries[friend.pk]['last_msg'],
             'unread': summaries[friend.pk]['unread'],
             'muted': friend.pk in muted_ids,
@@ -106,12 +113,66 @@ def room(request, username):
 
     Message.objects.filter(sender=friend, recipient=request.user, is_read=False).update(is_read=True)
 
+    nickname_obj = ContactNickname.objects.filter(owner=request.user, friend=friend).first()
+    theme = ChatTheme.for_pair(request.user, friend)
+    now_playing = spotify_client.get_now_playing_cached(friend) if spotify_client.is_configured() else None
+
     now = timezone.now()
     return render(request, 'chat/room.html', {
         'friend': friend,
+        'display_name': nickname_obj.nickname if nickname_obj and nickname_obj.nickname else friend.username,
+        'theme': theme,
         'gif_search_enabled': klipy.is_configured(),
         'is_muted': ConversationMute.is_muted(request.user, friend),
         'friend_online': bool(friend.last_seen_at and (now - friend.last_seen_at).total_seconds() < ONLINE_WINDOW_SECONDS),
+        'friend_now_playing': now_playing,
+    })
+
+
+@login_required
+def chat_settings(request, username):
+    friend = get_object_or_404(User, username=username)
+    if not Friendship.are_friends(request.user, friend):
+        return HttpResponseForbidden("You can only customize chats with friends.")
+
+    theme = ChatTheme.for_pair(request.user, friend)
+    nickname_obj, _ = ContactNickname.objects.get_or_create(owner=request.user, friend=friend)
+    preset_choices = ChatTheme._meta.get_field('preset').choices
+
+    if request.method == 'POST':
+        preset = request.POST.get('preset', 'default')
+        if preset in dict(preset_choices):
+            theme.preset = preset
+
+        wallpaper = request.FILES.get('wallpaper')
+        remove_wallpaper = request.POST.get('remove_wallpaper') == '1'
+        if wallpaper:
+            try:
+                url, public_id = cloudinary_client.upload_chat_file(wallpaper, request.user.pk)
+            except cloudinary_client.CloudinaryError as exc:
+                messages.error(request, f"Couldn't upload that wallpaper: {exc}")
+                return render(request, 'chat/settings.html', {
+                    'friend': friend, 'theme': theme, 'nickname_obj': nickname_obj, 'preset_choices': preset_choices,
+                })
+            old_public_id = theme.wallpaper_public_id
+            theme.wallpaper_url = url
+            theme.wallpaper_public_id = public_id
+            if old_public_id and old_public_id != public_id:
+                cloudinary_client.delete_chat_media(old_public_id)
+        elif remove_wallpaper and theme.wallpaper_url:
+            cloudinary_client.delete_chat_media(theme.wallpaper_public_id)
+            theme.wallpaper_url = ''
+            theme.wallpaper_public_id = ''
+        theme.save()
+
+        nickname_obj.nickname = request.POST.get('nickname', '').strip()[:40]
+        nickname_obj.save(update_fields=['nickname'])
+
+        messages.success(request, 'Chat settings updated.')
+        return redirect('chat:room', username=friend.username)
+
+    return render(request, 'chat/settings.html', {
+        'friend': friend, 'theme': theme, 'nickname_obj': nickname_obj, 'preset_choices': preset_choices,
     })
 
 
@@ -138,6 +199,10 @@ def inbox_data(request):
     friends = Friendship.friends_of(request.user)
     summaries = _conversation_summaries(request.user, friends)
     muted_ids = set(ConversationMute.objects.filter(user=request.user).values_list('friend_id', flat=True))
+    nickname_map = dict(
+        ContactNickname.objects.filter(owner=request.user, friend__in=friends).exclude(nickname='')
+        .values_list('friend_id', 'nickname')
+    )
     now = timezone.now()
 
     conversations = []
@@ -146,6 +211,7 @@ def inbox_data(request):
         last_msg = s['last_msg']
         conversations.append({
             'username': friend.username,
+            'display_name': nickname_map.get(friend.pk, friend.username),
             'avatar_color': friend.avatar_color,
             'avatar_url': friend.avatar_url,
             'initial': friend.username[0].upper(),
@@ -191,6 +257,7 @@ def _serialize_message(m, request_user):
         'file_name': m.file_name,
         'file_size': m.file_size,
         'duration_seconds': m.duration_seconds,
+        'effect': '' if m.deleted_at else m.effect,
         'mine': m.sender_id == request_user.pk,
         'is_read': m.is_read,
         'edited': m.edited_at is not None,
@@ -239,6 +306,8 @@ def poll_messages(request, username):
         user=friend, friend=request.user, updated_at__gte=timezone.now() - timezone.timedelta(seconds=TYPING_FRESH_SECONDS)
     ).exists()
 
+    now_playing = spotify_client.get_now_playing_cached(friend) if spotify_client.is_configured() else None
+
     return JsonResponse({
         'messages': data,
         'read_status': list(recent_mine),
@@ -248,6 +317,7 @@ def poll_messages(request, username):
         'friend_online': bool(
             friend.last_seen_at and (timezone.now() - friend.last_seen_at).total_seconds() < ONLINE_WINDOW_SECONDS
         ),
+        'friend_now_playing': now_playing,
     })
 
 
@@ -273,6 +343,12 @@ def send_message(request, username):
     kind = request.POST.get('kind', Message.KIND_TEXT)
     if kind not in (Message.KIND_GIF, Message.KIND_STICKER, Message.KIND_VOICE, Message.KIND_FILE):
         kind = Message.KIND_TEXT
+
+    # Effects only make sense on text messages — a confetti burst over a
+    # voice note bubble doesn't read as anything meaningful.
+    effect = request.POST.get('effect', '') if kind == Message.KIND_TEXT else ''
+    if effect not in ALLOWED_EFFECTS:
+        effect = ''
 
     reply_to = None
     reply_to_id = request.POST.get('reply_to')
@@ -313,6 +389,7 @@ def send_message(request, username):
     msg = Message.objects.create(
         sender=request.user, recipient=friend, body=body, kind=kind, media_url=media_url,
         file_name=file_name, file_size=file_size, duration_seconds=duration_seconds, reply_to=reply_to,
+        effect=effect,
     )
     TypingStatus.objects.filter(user=request.user, friend=friend).delete()
 
