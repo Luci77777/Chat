@@ -84,7 +84,7 @@ def spotify_connect(request):
         return redirect('accounts:profile')
     state = secrets.token_urlsafe(24)
     request.session['spotify_oauth_state'] = state
-    return redirect(spotify_client.build_authorize_url(state))
+    return redirect(spotify_client.build_authorize_url(state, request=request))
 
 
 @login_required
@@ -110,7 +110,7 @@ def spotify_callback(request):
         return redirect('accounts:profile')
 
     try:
-        data = spotify_client.exchange_code_for_tokens(code)
+        data = spotify_client.exchange_code_for_tokens(code, request=request)
     except spotify_client.SpotifyError as exc:
         messages.error(request, f"Couldn't connect Spotify: {exc}")
         return redirect('accounts:profile')

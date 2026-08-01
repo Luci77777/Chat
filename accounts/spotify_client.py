@@ -20,6 +20,7 @@ import urllib.parse
 
 import requests
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 
 AUTHORIZE_URL = 'https://accounts.spotify.com/authorize'
@@ -43,19 +44,31 @@ class SpotifyError(Exception):
     pass
 
 
+def get_redirect_uri(request=None):
+    """
+    Returns the configured SPOTIFY_REDIRECT_URI if set in settings,
+    or dynamically constructs it from request if available.
+    """
+    uri = getattr(settings, 'SPOTIFY_REDIRECT_URI', '').strip()
+    if uri:
+        return uri
+    if request:
+        return request.build_absolute_uri(reverse('accounts:spotify_callback'))
+    return ''
+
+
 def is_configured():
-    return bool(
-        getattr(settings, 'SPOTIFY_CLIENT_ID', '')
-        and getattr(settings, 'SPOTIFY_CLIENT_SECRET', '')
-        and getattr(settings, 'SPOTIFY_REDIRECT_URI', '')
-    )
+    client_id = getattr(settings, 'SPOTIFY_CLIENT_ID', '').strip()
+    client_secret = getattr(settings, 'SPOTIFY_CLIENT_SECRET', '').strip()
+    return bool(client_id and client_secret)
 
 
-def build_authorize_url(state):
+def build_authorize_url(state, request=None):
+    redirect_uri = get_redirect_uri(request)
     params = {
         'client_id': settings.SPOTIFY_CLIENT_ID,
         'response_type': 'code',
-        'redirect_uri': settings.SPOTIFY_REDIRECT_URI,
+        'redirect_uri': redirect_uri,
         'scope': SCOPES,
         'state': state,
         'show_dialog': 'false',
@@ -63,15 +76,16 @@ def build_authorize_url(state):
     return f'{AUTHORIZE_URL}?{urllib.parse.urlencode(params)}'
 
 
-def exchange_code_for_tokens(code):
+def exchange_code_for_tokens(code, request=None):
     """Authorization code -> {access_token, refresh_token, expires_in}. Raises SpotifyError on failure."""
+    redirect_uri = get_redirect_uri(request)
     try:
         res = requests.post(
             TOKEN_URL,
             data={
                 'grant_type': 'authorization_code',
                 'code': code,
-                'redirect_uri': settings.SPOTIFY_REDIRECT_URI,
+                'redirect_uri': redirect_uri,
             },
             auth=(settings.SPOTIFY_CLIENT_ID, settings.SPOTIFY_CLIENT_SECRET),
             timeout=REQUEST_TIMEOUT,
